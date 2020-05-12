@@ -20,6 +20,12 @@ let inline private additionMerge (lhs:Map<_,_>) (rhs:Map<_,_>) =
 let inline sum< ^a, ^b when ^a: (static member Sum: ^a -> ^b)> (k1: ^a) = 
     ((^a) : (static member Sum: ^a -> ^b) k1)
 
+let inline sumAll< ^a, ^b when ^a: (static member Sum: ^a -> ^b) 
+                          and ^a: (static member (+): ^a * ^a -> ^a)
+                          and ^a: (static member Zero: ^a)> (k1: ^a seq) = 
+    let r = Seq.sum k1
+    ((^a) : (static member Sum: ^a -> ^b) r)
+
 type SliceType<'a when 'a : comparison> =
     | All
     | Equals of 'a
@@ -83,6 +89,8 @@ type SMap<'Key, 'Value when 'Key : comparison and 'Value : equality> (m:Map<'Key
     member this.Item
         with get(k) =
             this.Values.[k] 
+
+    static member Zero = Map.empty<'Key, 'Value> |> SMap
 
     // Operators
     static member inline (*) (lhs, rhs:SMap<_,_>) =
@@ -206,6 +214,9 @@ type SMap2<'Key1, 'Key2, 'Value when 'Key1 : comparison and 'Key2 : comparison a
         |> Map.map (fun (k1, k2) v -> v * rhs.[(k1, k2)])
         |> SMap2
 
+    static member inline ( <*-> ) (lhs:SMap2<_,_,_>, rhs:SMap<_,_>) =
+        lhs
+
     static member inline (+) (lhs:SMap2<_,_,_>, rhs:SMap2<_,_,_>) =
         match Map.count lhs.Values > Map.count rhs.Values with
         | true ->  additionMerge lhs.Values rhs.Values
@@ -214,6 +225,8 @@ type SMap2<'Key1, 'Key2, 'Value when 'Key1 : comparison and 'Key2 : comparison a
 
     static member inline Sum (m:SMap2<_,_,_>) =
         m.Values |> Map.toSeq |> Seq.sumBy snd
+
+    static member inline Zero () = Map.empty
 
 
 module SMap2 =
