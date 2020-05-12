@@ -4,6 +4,7 @@ open System
 open Flips.Domain
 open Flips.Solve
 open Flips.SliceMap
+open Flips.Examples
 
 let FoodTruckExample () =
 
@@ -554,7 +555,7 @@ let mapSlicingExample () =
 [<EntryPoint>]
 let main argv =
     
-    FoodTruckExample ()
+    //FoodTruckExample ()
     //FoodTruckMapExample ()
     //FoodTruckConstraintBuilderExample ()
     //MultipleFoodTruckExample ()
@@ -562,6 +563,8 @@ let main argv =
     //simpleModel ()
     //constraintBuilderExample ()
     //mapSlicingExample ()
+
+    MultiPeriodDemandModel.solveModel ()
 
     printfn "Press any key to close..."
     Console.ReadKey () |> ignore
