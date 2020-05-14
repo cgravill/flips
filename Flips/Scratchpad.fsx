@@ -156,3 +156,11 @@ let x = SMap2.ofList [
 let a = x.[1, "a"]
 let b = x.[GreaterThan 1, "a"]
 let c = x.[GreaterThan 1, LessThan "b"]
+
+let x = array2D [[1.0; 2.0; 3.0]
+                 [4.0; 5.0; 6.0]]
+let y = [|1.0; 2.0|]
+
+x * y
+// [[1.0;  2.0;  3.0]
+//  [8.0; 10.0; 12.0]]

@@ -73,6 +73,9 @@ let buildModel (data:Data) =
         (-1.0 * sumAll [for p in data.Periods -> inventory.[All, p] .* data.CarryingCost]) + 
         (-1.0 * sum (purchase .* data.PurchaseCost))
 
+    let alt =
+        sum ( data.SalePrice .* sales - data.CarryingCost .* inventory - purchase .* data.PurchaseCost )
+
     let objective = Objective.create "MaximizeSales" Maximize objectiveExpression
     let m = 
         Model.create objective

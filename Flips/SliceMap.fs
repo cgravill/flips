@@ -214,7 +214,7 @@ type SMap2<'Key1, 'Key2, 'Value when 'Key1 : comparison and 'Key2 : comparison a
         |> Map.map (fun (k1, k2) v -> v * rhs.[(k1, k2)])
         |> SMap2
 
-    static member inline ( <*-> ) (lhs:SMap2<_,_,_>, rhs:SMap<_,_>) =
+    static member inline ( >*--< ) (lhs:SMap2<_,_,_>, rhs:SMap<_,_>) =
         lhs
 
     static member inline (+) (lhs:SMap2<_,_,_>, rhs:SMap2<_,_,_>) =
