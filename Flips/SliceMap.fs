@@ -1,5 +1,6 @@
 ﻿module Flips.SliceMap
 
+
 // Declared here so it can be used by any of the MapXD types
 let inline private getKeyCheck lb ub =
     match lb, ub with
@@ -9,22 +10,27 @@ let inline private getKeyCheck lb ub =
     | None, None -> fun _ -> true
 
 
-let inline private additionMerge (lhs:Map<_,_>) (rhs:Map<_,_>) =
+let inline private mergeAddition (lhs:Map<_,_>) (rhs:Map<_,_>) =
     /// The assumption is that the LHS Map has more entries than the RHS Map
     let newRhsValues = rhs |> Map.filter (fun k _ -> not (lhs.ContainsKey k)) |> Map.toSeq
 
     lhs
-    |> Map.map (fun k lhsV -> match Map.tryFind k rhs with | Some rhsV -> lhsV + rhsV | None -> lhsV)
+    |> Map.map (fun k lhsV -> match Map.tryFind k rhs with 
+                              | Some rhsV -> lhsV + rhsV 
+                              | None -> lhsV)
     |> fun newLhs -> Seq.fold (fun m (k, v) -> Map.add k v m) newLhs newRhsValues
+
 
 let inline sum< ^a, ^b when ^a: (static member Sum: ^a -> ^b)> (k1: ^a) = 
     ((^a) : (static member Sum: ^a -> ^b) k1)
+
 
 let inline sumAll< ^a, ^b when ^a: (static member Sum: ^a -> ^b) 
                           and ^a: (static member (+): ^a * ^a -> ^a)
                           and ^a: (static member Zero: ^a)> (k1: ^a seq) = 
     let r = Seq.sum k1
     ((^a) : (static member Sum: ^a -> ^b) r)
+
 
 type SliceType<'a when 'a : comparison> =
     | All
@@ -111,8 +117,8 @@ type SMap<'Key, 'Value when 'Key : comparison and 'Value : equality> (m:Map<'Key
 
     static member inline (+) (lhs:SMap<_,_>, rhs:SMap<_,_>) =
         match Map.count lhs.Values > Map.count rhs.Values with
-        | true ->  additionMerge lhs.Values rhs.Values
-        | false -> additionMerge rhs.Values lhs.Values
+        | true ->  mergeAddition lhs.Values rhs.Values
+        | false -> mergeAddition rhs.Values lhs.Values
         |> SMap
 
     static member inline Sum (m:SMap<_,_>) =
@@ -214,13 +220,24 @@ type SMap2<'Key1, 'Key2, 'Value when 'Key1 : comparison and 'Key2 : comparison a
         |> Map.map (fun (k1, k2) v -> v * rhs.[(k1, k2)])
         |> SMap2
 
-    static member inline ( >*--< ) (lhs:SMap2<_,_,_>, rhs:SMap<_,_>) =
-        lhs
+    static member inline (.*) (lhs:SMap2<_,_,_>, rhs:SMap<_,_>) =
+        let rhs = rhs.Values
+        lhs.Values
+        |> Map.filter (fun (k1, k2) _ -> rhs.ContainsKey k2)
+        |> Map.map (fun (k1, k2) v -> v * rhs.[k2])
+        |> SMap2
+
+    static member inline (.*) (lhs:SMap<_,_>, rhs:SMap2<_,_,_>) =
+        let rlhs = lhs.Values
+        rhs.Values
+        |> Map.filter (fun (k1, k2) _ -> lhs.ContainsKey k1)
+        |> Map.map (fun (k1, k2) v -> v * lhs.[k1])
+        |> SMap2
 
     static member inline (+) (lhs:SMap2<_,_,_>, rhs:SMap2<_,_,_>) =
         match Map.count lhs.Values > Map.count rhs.Values with
-        | true ->  additionMerge lhs.Values rhs.Values
-        | false -> additionMerge rhs.Values lhs.Values
+        | true ->  mergeAddition lhs.Values rhs.Values
+        | false -> mergeAddition rhs.Values lhs.Values
         |> SMap2
 
     static member inline Sum (m:SMap2<_,_,_>) =
@@ -251,6 +268,9 @@ module SMap2 =
 
     let containsKey k (m:SMap2<_,_,_>) =
         Map.containsKey k m.Values
+
+    let inline reKey f m =
+        m |> toSeq |> Seq.map (fun (k, v) -> (f k), v) |> ofSeq
 
 
 type SMap3<'Key1, 'Key2, 'Key3, 'Value when 'Key1 : comparison and 'Key2 : comparison and 'Key3 : comparison and 'Value : equality> (m:Map<('Key1 * 'Key2 * 'Key3),'Value>) =
@@ -347,17 +367,40 @@ type SMap3<'Key1, 'Key2, 'Key3, 'Value when 'Key1 : comparison and 'Key2 : compa
         |> Map.map (fun k v -> rhs * v)
         |> SMap3
 
-
     static member inline (.*) (lhs:SMap3<_,_,_,_>, rhs:SMap3<_,_,_,_>) =
         lhs.Values
         |> Map.filter (fun k _ -> rhs.ContainsKey k)
         |> Map.map (fun (k1, k2, k3) v -> v * rhs.[k1, k2, k3])
         |> SMap3
 
+    static member inline (.*) (a:SMap3<_,_,_,_>, b:SMap2<_,_,_>) =
+        a.Values
+        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey (k2, k3))
+        |> Map.map (fun (k1, k2, k3) v -> v * b.[k2, k3])
+        |> SMap3
+
+    static member inline (.*) (b:SMap2<_,_,_>, a:SMap3<_,_,_,_>) =
+        a.Values
+        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey (k1, k2))
+        |> Map.map (fun (k1, k2, k3) v -> v * b.[k1, k2])
+        |> SMap3
+
+    static member inline (.*) (a:SMap3<_,_,_,_>, b:SMap<_,_>) =
+        a.Values
+        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey k3)
+        |> Map.map (fun (k1, k2, k3) v -> v * b.[k3])
+        |> SMap3
+
+    static member inline (.*) (b:SMap<_,_>, a:SMap3<_,_,_,_>) =
+        a.Values
+        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey k1)
+        |> Map.map (fun (k1, k2, k3) v -> v * b.[k1])
+        |> SMap3
+
     static member inline (+) (lhs:SMap3<_,_,_,_>, rhs:SMap3<_,_,_,_>) =
         match Map.count lhs.Values > Map.count rhs.Values with
-        | true ->  additionMerge lhs.Values rhs.Values
-        | false -> additionMerge rhs.Values lhs.Values
+        | true ->  mergeAddition lhs.Values rhs.Values
+        | false -> mergeAddition rhs.Values lhs.Values
         |> SMap3
 
     static member inline Sum (m:SMap3<_,_,_,_>) =
@@ -386,6 +429,9 @@ module SMap3 =
 
     let containsKey k (m:SMap3<_,_,_,_>) =
         Map.containsKey k m.Values
+
+    let inline reKey f m =
+        m |> toSeq |> Seq.map (fun (k, v) -> (f k), v) |> ofSeq
 
 
 type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 : comparison and 'Key3 : comparison and 'Key4 : comparison and 'Value : equality> (m:Map<('Key1 * 'Key2 * 'Key3 * 'Key4),'Value>) =
@@ -539,10 +585,46 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
         |> Map.map (fun (k1, k2, k3, k4) v -> v * rhs.[k1, k2, k3, k4])
         |> SMap4
 
+    static member inline (.*) (a:SMap4<_,_,_,_,_>, b:SMap3<_,_,_,_>) =
+        a.Values
+        |> Map.filter (fun (k1, k2, k3, k4) _ -> b.ContainsKey (k2, k3, k4))
+        |> Map.map (fun (k1, k2, k3, k4) v -> v * b.[k2, k3, k4])
+        |> SMap4
+
+    static member inline (.*) (b:SMap3<_,_,_,_>, a:SMap4<_,_,_,_,_>) =
+        a.Values
+        |> Map.filter (fun (k1, k2, k3, k4) _ -> b.ContainsKey (k1, k2, k3))
+        |> Map.map (fun (k1, k2, k3, k4) v -> v * b.[k1, k2, k3])
+        |> SMap4
+
+    static member inline (.*) (a:SMap4<_,_,_,_,_>, b:SMap2<_,_,_>) =
+        a.Values
+        |> Map.filter (fun (k1, k2, k3, k4) _ -> b.ContainsKey (k3, k4))
+        |> Map.map (fun (k1, k2, k3, k4) v -> v * b.[k3, k4])
+        |> SMap4
+
+    static member inline (.*) (b:SMap2<_,_,_>, a:SMap4<_,_,_,_,_>) =
+        a.Values
+        |> Map.filter (fun (k1, k2, k3, k4) _ -> b.ContainsKey (k1, k2))
+        |> Map.map (fun (k1, k2, k3, k4) v -> v * b.[k1, k2])
+        |> SMap4
+
+    static member inline (.*) (a:SMap4<_,_,_,_,_>, b:SMap<_,_>) =
+        a.Values
+        |> Map.filter (fun (k1, k2, k3, k4) _ -> b.ContainsKey k4)
+        |> Map.map (fun (k1, k2, k3, k4) v -> v * b.[k4])
+        |> SMap4
+
+    static member inline (.*) (b:SMap<_,_>, a:SMap4<_,_,_,_,_>) =
+        a.Values
+        |> Map.filter (fun (k1, k2, k3, k4) _ -> b.ContainsKey k1)
+        |> Map.map (fun (k1, k2, k3, k4) v -> v * b.[k1])
+        |> SMap4
+
     static member inline (+) (lhs:SMap4<_,_,_,_,_>, rhs:SMap4<_,_,_,_,_>) =
         match Map.count lhs.Values > Map.count rhs.Values with
-        | true ->  additionMerge lhs.Values rhs.Values
-        | false -> additionMerge rhs.Values lhs.Values
+        | true ->  mergeAddition lhs.Values rhs.Values
+        | false -> mergeAddition rhs.Values lhs.Values
         |> SMap4
 
     static member inline Sum (m:SMap4<_,_,_,_,_>) =
@@ -571,3 +653,6 @@ module SMap4 =
 
     let containsKey k (m:SMap4<_,_,_,_,_>) =
         Map.containsKey k m.Values
+
+    let inline reKey f m =
+        m |> toSeq |> Seq.map (fun (k, v) -> (f k), v) |> ofSeq

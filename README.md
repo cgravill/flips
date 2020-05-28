@@ -24,6 +24,7 @@
     - [Slicing for 2D, 3D, and 4D SliceMaps](#slicing-for-2d-3d-and-4d-slicemaps)
     - [Sub-setting SliceMaps](#sub-setting-slicemaps)
     - [Operators for SliceMaps](#operators-for-slicemaps)
+      - [Broadcasting for SliceMaps](#broadcasting-for-slicemaps)
     - [Slicing and Domain Driven Design](#slicing-and-domain-driven-design)
     - [Example Using SliceMaps](#example-using-slicemaps)
   - [Constraint Builder](#constraint-builder)
@@ -240,7 +241,7 @@ let x2 = [for i in 1..3 do
 x2.[1, 2] // Returns val it : int = 3
 ```
 
-The real power of SliceMaps for Optimization Modeling comes from their ability to "slice" the values across the dimensions of the key. This takes the ability to slice `Array` and `List` but extends it. The slicing built into F# is powerful but it limited to slicing contiguous values. SliceMaps support the same ability but extend it by offering more advanced filtering criteria which is useful in the Optimization domain.
+The real power of SliceMaps for Optimization Modeling comes from their ability to "slice" the values across the dimensions of the key. This takes the ability to slice `Array` and `List` but extends it. The slicing built into F# is powerful but it is constrained to a limited set of slicing types. SliceMaps support the same types of slices but offer more advanced filtering criteria which is useful in the Optimization domain.
 
 
 ### Types of Slicing
@@ -462,6 +463,81 @@ x .* y
 ```
 
 The `.*` becomes incredibly useful in formulating Constraints as you will see in future examples.
+
+#### Broadcasting for SliceMaps
+
+The `.*` operator also supports the idea of Broadcasting. This concept is similar to Broadcasting in the [Numpy Library](https://numpy.org/doc/stable/user/theory.broadcasting.html#array-broadcasting-in-numpy) and the [Julia language](https://docs.julialang.org/en/v1/manual/arrays/#Broadcasting-1). The idea is that when performing the element-wise multiplication of two SliceMaps of different dimensions, the values are repeated along the unmatched dimension. This behavior is not exactly the same as what happens in Numpy and Julia, but the concept is the same.
+
+Here is an example of element-wise multiplication of a `SMap` and a `SMap2`.
+
+```fsharp
+let x = SMap2.ofList [
+    (1, "a"), 1.0; (1, "b"), 2.0; (1, "c"), 3.0; 
+    (2, "a"), 4.0; (2, "b"), 5.0; (2, "c"), 6.0; 
+    (3, "a"), 7.0; (3, "b"), 8.0; (3, "c"), 9.0; 
+]
+
+let y = SMap.ofList [(1, 1.0); (2, 2.0); (3, 3.0)]
+
+y .* x
+// Returns 
+// SMap2 map [((1, "a"),  1.0); ((1, "b"),  2.0); ((1, "c"),  3.0);
+//            ((2, "a"),  8.0); ((2, "b"), 10.0); ((2, "c"), 12.0);
+//            ((3, "a"), 21.0); ((3, "b"), 24.0); ((3, "c"), 27.0)];}
+```
+
+You will notice that where the key of `y` matches the first element of the key for `x`, the values are multiplied. The resulting type is still a 2-dimensional SliceMap, `SMap2`. Something important to note is that in the `.*` operator is not commutative (i.e. positioning matters) for SliceMaps of different dimensions. If you tried the following, you would get a compiler error saying no overloads can be found.
+
+```fsharp
+x .* y // No matching operator can be found
+```
+
+When broadcasting with the `.*` operator, it is required that the types used for the keys to line up. In the first case, the key for `y` is an `int`. `y` is on the left side of `x` so it is comparing to the first element of the key for `x`. The type of the first element of the key for `x` is an `int` therefore you can use `.*`.
+
+When you move `y` to the right side, the `.*` operator is checking the second element (or right-most element) of the key for `x`. In this case, the type of the second element of the `x` key is a `string`. The types do not match. Let us create a new `SMap` using a `string` for the key and try this again.
+
+```fsharp
+let x = SMap2.ofList [
+    (1, "a"), 1.0; (1, "b"), 2.0; (1, "c"), 3.0; 
+    (2, "a"), 4.0; (2, "b"), 5.0; (2, "c"), 6.0; 
+    (3, "a"), 7.0; (3, "b"), 8.0; (3, "c"), 9.0; 
+]
+let z = SMap.ofList [("a", 1.0); ("b", 2.0); ("c", 3.0)]
+
+x .* z
+// Returns
+// SMap2 map [((1, "a"), 1.0); ((1, "b"),  4.0); ((1, "c"),  9.0);
+//            ((2, "a"), 4.0); ((2, "b"), 10.0); ((2, "c"), 18.0);
+//            ((3, "a"), 7.0); ((3, "b"), 16.0); ((3, "c"), 27.0)];}
+
+z .* x // Compiler error: No matching operator can be found
+```
+
+You will notice now that the value in `x` is multiplied by the value in `z` where the second element of the key for `x` matches. The requirement for broadcasting can be summarized with these type signatures
+
+```fsharp
+SMap<'Key1, 'Value> .* SMap2<'Key1, 'Key2, 'Value>
+SMap2<'Key1, 'Key2, 'Value> .* SMap<'Key2, 'Value>
+
+SMap<'Key1, 'Value> .* SMap3<'Key1, 'Key2, 'Key3, 'Value>
+SMap3<'Key1, 'Key2, 'Key3, 'Value> .* SMap<'Key3, 'Value>
+
+SMap<'Key1, 'Value> .* SMap4<'Key1, 'Key2, 'Key3, 'Key4 'Value>
+SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value> .* SMap<'Key4, 'Value>
+
+SMap2<'Key1, 'Key2, 'Value> .* SMap3<'Key1, 'Key2, 'Key3, 'Value>
+SMap3<'Key1, 'Key2, 'Key3, 'Value> .* SMap2<'Key2, 'Key3, 'Value>
+
+SMap2<'Key1, 'Key2, 'Value> .* SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value>
+SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value> .* SMap2<'Key3, 'Key4, 'Value>
+
+SMap3<'Key1, 'Key2, 'Key3, 'Value> .* SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value>
+SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value> .* SMap3<'Key2, 'Key3, 'Key4, 'Value> 
+```
+
+The important thing to remember, when multiplying a high-dimensional SliceMap by a lower-dimensional SliceMap, the keys used for matching are dependent on the side of the lower-dimensional SliceMap. If the lower-dimensional SliceMap is on the left then it is the first elements of the keys that must match. If the lower-dimensional SliceMap is on the right, then the last elements of the keys must match.
+
+Using the `.*` operator with SliceMaps of different dimensions will always yield a SliceMap of the higher dimensionality. `SMap .* SMap2` will yield a `SMap2`. `SMap2 .* SMap3` will yield a `SMap3` etc.
 
 ### Slicing and Domain Driven Design
 

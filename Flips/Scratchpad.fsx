@@ -4,7 +4,7 @@
 //#r @"C:\Users\matth\.nuget\packages\google.ortools.runtime.win-x64\7.5.7466\runtimes\win-x64\native\google-ortools-native.dll"
 
 #load "Domain.fs"
-#load "Solve.fs"
+//#load "Solve.fs"
 #load "SliceMap.fs"
 
 open System
@@ -142,6 +142,7 @@ let x = SMap2.ofList [
     (Index 2, City "a"), 3.0; (Index 2, City "b"), 1.0; (Index 2, City "c"), 2.3; 
     (Index 3, City "a"), 4.0; (Index 3, City "b"), 1.5; (Index 3, City "c"), 2.4; 
 ]
+x
 x.[GreaterOrEqual (Index 2), LessOrEqual (City "b")]
 
 let x = array2D [ [ 1; 2]; [3; 4] ]
@@ -157,10 +158,40 @@ let a = x.[1, "a"]
 let b = x.[GreaterThan 1, "a"]
 let c = x.[GreaterThan 1, LessThan "b"]
 
-let x = array2D [[1.0; 2.0; 3.0]
-                 [4.0; 5.0; 6.0]]
-let y = [|1.0; 2.0|]
+let y = SMap2.reKey (fun (i, c) -> c, i) x
+y
 
-x * y
-// [[1.0;  2.0;  3.0]
-//  [8.0; 10.0; 12.0]]
+let x = Scalar 0.01358385106
+let y = Scalar 21.99286698
+let z = x + y - y
+z.ToString()
+x.ToString()
+x = y
+
+
+let (Scalar n) = z
+let n1 = System.BitConverter.DoubleToInt64Bits n
+let x1 = System.BitConverter.DoubleToInt64Bits 0.01358385106
+
+n1 - x1
+
+let x = SMap2.ofList [
+    (1, "a"), 1.0; (1, "b"), 2.0; (1, "c"), 3.0; 
+    (2, "a"), 4.0; (2, "b"), 5.0; (2, "c"), 6.0; 
+    (3, "a"), 7.0; (3, "b"), 8.0; (3, "c"), 9.0; 
+]
+
+let y = SMap.ofList [(1, 1.0); (2, 2.0); (3, 3.0)]
+
+x .* y
+
+let x = SMap2.ofList [
+    (1, "a"), 1.0; (1, "b"), 2.0; (1, "c"), 3.0; 
+    (2, "a"), 4.0; (2, "b"), 5.0; (2, "c"), 6.0; 
+    (3, "a"), 7.0; (3, "b"), 8.0; (3, "c"), 9.0; 
+]
+let z = SMap.ofList [("a", 1.0); ("b", 2.0); ("c", 3.0)]
+
+x .* z
+
+z .* x
