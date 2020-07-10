@@ -1,11 +1,14 @@
 module Flips.Domain
 
+
 type DecisionType =
     | Boolean
     | Integer of LowerBound:float * UpperBound:float
     | Continuous of LowerBound:float * UpperBound:float
 
+
 type DecisionName = DecisionName of string
+
 
 [<CustomEquality; CustomComparison>]
 type Scalar = Value of float with
@@ -73,6 +76,7 @@ type Scalar = Value of float with
             match yObj with
             | :? Scalar as s -> compare this s
             | _ -> invalidArg "yObj" "Cannot compare values of different types"
+
 
 and Decision = {
     Name : DecisionName
@@ -197,7 +201,6 @@ and LinearExpression (names:Set<DecisionName>, coefficients : Map<DecisionName, 
     static member (-) (f:float, expr:LinearExpression) =
         f + (-1.0 * expr)
 
-
     static member (<==) (lhs:LinearExpression, rhs:float) =
         Inequality (lhs, LessOrEqual, LinearExpression.OfFloat rhs)
 
@@ -230,7 +233,6 @@ and LinearExpression (names:Set<DecisionName>, coefficients : Map<DecisionName, 
         let lExpr = ((^a) : (static member AsLinearExpression: ^a -> LinearExpression) l)
         let rExpr = ((^b) : (static member AsLinearExpression: ^b -> LinearExpression) r)
         Inequality (lExpr, GreaterOrEqual, rExpr)
-
 
 
 and Inequality =

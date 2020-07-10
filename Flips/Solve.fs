@@ -14,15 +14,16 @@ module internal ORTools =
         | GLOP
 
 
-    let private buildExpression (varMap:Map<DecisionName,Variable>) (LinearExpression (names, coefs, decs, Scalar offset):LinearExpression) =
+    let private buildExpression (varMap:Map<DecisionName,Variable>) (expr:LinearExpression) =
         let decisionExpr =
-            names
-            |> Seq.map (fun n -> getScalarValue coefs.[n] * varMap.[n])
+            expr.Names
+            |> Seq.map (fun n -> getScalarValue expr.Coefficients.[n] * varMap.[n])
             |> fun x -> 
                 match Seq.isEmpty x with 
                 | true -> LinearExpr() 
                 | false -> Seq.reduce (+) x
         
+        let (Value offset) = expr.Offset
         offset + decisionExpr
 
 
@@ -136,14 +137,14 @@ module internal Optano =
         | Gurobi900
 
 
-    let private buildExpression (varMap:Map<DecisionName, Variable>) (LinearExpression (names, coefs, decs, offset):LinearExpression) =
+    let private buildExpression (varMap:Map<DecisionName, Variable>) (expr:LinearExpression) =
 
-        let v = getScalarValue offset
+        let v = getScalarValue expr.Offset
         let constant = Expression.Sum([v])
         let variables =
-            names
+            expr.Names
             |> Set.toSeq
-            |> Seq.map (fun n -> getScalarValue coefs.[n] * varMap.[n])
+            |> Seq.map (fun n -> getScalarValue expr.Coefficients.[n] * varMap.[n])
             |> (fun terms -> Expression.Sum(terms))
 
         constant + variables

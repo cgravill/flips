@@ -22,7 +22,7 @@ let SmallFloatGen =
 let ScalarGen =
     gen {
         let! f = FloatGen
-        return Value f
+        return Scalar.Scalar f
     }
 
 let IntegerBoundsGen =
