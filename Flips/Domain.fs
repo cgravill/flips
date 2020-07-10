@@ -159,8 +159,7 @@ and LinearExpression (names:Set<DecisionName>, coefficients : Map<DecisionName, 
 
         LinearExpression (newNames, newCoefs, newDecs, l.Offset + r.Offset)
 
-    static member (+) (lExpr:LinearExpression, r: ^a when ^a: (static member AsLinearExpression : ^a -> LinearExpression)) =
-        let rExpr = (^a: (static member AsLinearExpression : ^a -> LinearExpression) r)
+    static member (+) (lExpr:LinearExpression, rExpr:LinearExpression) =
         let lSize = Set.count lExpr.Names
         let rSize = Set.count rExpr.Names
 
