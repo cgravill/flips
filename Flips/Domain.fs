@@ -159,14 +159,15 @@ and LinearExpression (names:Set<DecisionName>, coefficients : Map<DecisionName, 
 
         LinearExpression (newNames, newCoefs, newDecs, l.Offset + r.Offset)
 
-    static member (+) (l:LinearExpression, r:LinearExpression) =
-        let lSize = Set.count l.Names
-        let rSize = Set.count r.Names
+    static member (+) (lExpr:LinearExpression, r: ^a when ^a: (static member AsLinearExpression : ^a -> LinearExpression)) =
+        let rExpr = (^a: (static member AsLinearExpression : ^a -> LinearExpression) r)
+        let lSize = Set.count lExpr.Names
+        let rSize = Set.count rExpr.Names
 
         if lSize > rSize then
-            LinearExpression.Merge (l, r)
+            LinearExpression.Merge (lExpr, rExpr)
         else
-            LinearExpression.Merge (r, l)
+            LinearExpression.Merge (rExpr, lExpr)
 
     //static member (+) (expr:LinearExpression, f:float) =
     //    expr + (LinearExpression.OfFloat f)
