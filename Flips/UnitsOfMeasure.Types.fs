@@ -1,4 +1,4 @@
-﻿namespace Flips.UnitsOfMeasure.Types
+﻿module Flips.UnitsOfMeasure.Types
 
 open Flips
 
@@ -10,58 +10,6 @@ with
         let (Value d) = this
         d.Name
 
-    static member (+) (Value lD:Decision<'Measure>, Value rD:Decision<'Measure>) =
-        LinearExpression<'Measure>.Value (lD + rD)
-
-    static member (+) (Value d:Decision<'Measure>, f:float<'Measure>) =
-        LinearExpression<'Measure>.Value (d + float f)
-
-    static member (+) (f:float<'Measure>, d:Decision<'Measure>) =
-        d + f
-
-    static member (*) (Value d:Decision<'LMeasure>, f:float<'RMeasure>) =
-        LinearExpression<'LMeasure 'RMeasure>.Value (d * float f)
-
-    static member (*) (f:float<'LMeasure>, d:Decision<'RMeasure>) =
-        d * f
-
-    static member (-) (Value l:Decision<'Measure>, Value r:Decision<'Measure>) =
-        LinearExpression<'Measure>.Value (l - r)
-
-    static member (-) (Value d:Decision<'Measure>, f:float<'Measure>) =
-        LinearExpression<'Measure>.Value (d - float f)
-
-    static member (-) (f:float<'Measure>, Value d:Decision<'Measure>) =
-        LinearExpression<'Measure>.Value (float f - d)
-
-    static member (<==) (Value l:Decision<'Measure>, r:float<'Measure>) =
-        l <== float r
-
-    static member (<==) (l:float<'Measure>, Value r:Decision<'Measure>) =
-        float l <== r
-
-    static member (<==) (Value l:Decision<'Measure>, Value r:Decision<'Measure>) =
-        l <== r
-
-    static member (==) (Value l:Decision<'Measure>, r:float<'Measure>) =
-        l == float r
-
-    static member (==) (l:float<'Measure>, Value r:Decision<'Measure>) =
-        float l == r
-
-    static member (==) (Value l:Decision<'Measure>, Value r:Decision<'Measure>) =
-        l == r
-
-    static member (>==) (Value l:Decision<'Measure>, r:float<'Measure>) =
-        l >== float r
-
-    static member (>==) (l:float<'Measure>, Value r:Decision<'Measure>) =
-        float l >== r
-
-    static member (>==) (Value l:Decision<'Measure>, Value r:Decision<'Measure>) =
-        l >== r
-
-
 and LinearExpression<[<Measure>] 'Measure> =
     | Value of Types.LinearExpression
     with
@@ -70,87 +18,73 @@ and LinearExpression<[<Measure>] 'Measure> =
             let expr = Types.LinearExpression (Set.empty, Map.empty, Map.empty, Types.Scalar.Zero)
             LinearExpression<'Measure>.Value expr
 
-        static member (+) (Value lExpr:LinearExpression<'Measure>, Value rExpr:LinearExpression<'Measure>) =
-            LinearExpression<'Measure>.Value (lExpr + rExpr)
+type AsLinearExpressionOverloads() =
+    static member inline AsLinearExpression<[<Measure>] 'Measure>(f: float<'Measure>) : LinearExpression<'Measure> = 
+        let f = float f
+        let expr = Flips.Types.AsLinearExpressionOverloads.AsLinearExpression(f)
+        LinearExpression<'Measure>.Value expr
 
-        static member (+) (Value expr:LinearExpression<'Measure>, f:float<'Measure>) =
-            LinearExpression<'Measure>.Value (expr + float f)
+    static member inline AsLinearExpression<[<Measure>] 'Measure>(Decision.Value d:Decision<'Measure>) : LinearExpression<'Measure> =
+        let expr = Flips.Types.AsLinearExpressionOverloads.AsLinearExpression(d)
+        LinearExpression<'Measure>.Value expr
 
-        static member (+) (f:float<'Measure>, expr:LinearExpression<'Measure>) =
-            expr + f
+    static member inline AsLinearExpression<[<Measure>] 'Measure>(l:LinearExpression<'Measure>) : LinearExpression<'Measure> = l
+   
+    static member inline Invoke<[<Measure>] 'Measure>(input: ^LinearExpressionLike) : LinearExpression<'Measure> =
+        let inline call (mthd: ^M, input: ^I) = ((^M or ^I) : (static member AsLinearExpression<[<Measure>] 'Measure> : _ -> LinearExpression<'Measure>) input)
+        call(Unchecked.defaultof<AsLinearExpressionOverloads>, input)
 
-        static member (+) (Value expr:LinearExpression<'Measure>, Decision.Value d:Decision<'Measure>) =
-            LinearExpression<'Measure>.Value (expr + d)
+let inline (|AsLinearExpression|) x : LinearExpression<'Measure> = AsLinearExpressionOverloads.Invoke(x)
 
-        static member (+) (d:Decision<'Measure>, expr:LinearExpression<'Measure>) =
-            expr + d
+type LinearExpression with
 
-        static member (*) (Value expr:LinearExpression<'LMeasure>, f:float<'RMeasure>) =
-            LinearExpression<'Measure>.Value (expr * float f)
+    static member private Merge (l:LinearExpression, r:LinearExpression) =
+        // Assume the Left LinearExpression is larget than the right
+        let nameOverlap = Set.intersect l.Names r.Names
+    
+        for n in nameOverlap do
+            if l.Decisions.[n].Type <> r.Decisions.[n].Type then
+                let (DecisionName name) = n
+                invalidArg name "Cannot have mismatched DecisionTypes for same DecisionName"
 
-        static member (*) (f:float<'LMeasure>, expr:LinearExpression<'RMeasure>) =
-            expr * f
+        let newNames = l.Names + r.Names
 
-        static member (-) (Value expr:LinearExpression<'Measure>, f:float<'Measure>) =
-            LinearExpression<'Measure>.Value (expr - float f)
+        let newDecs = (l.Decisions, (r.Names - l.Names)) ||> Set.fold (fun m k -> Map.add k r.Decisions.[k] m)
 
-        static member (-) (f:float<'Measure>, Value expr:LinearExpression<'Measure>) =
-            LinearExpression<'Measure>.Value (float f - expr)
+        let newCoefs =
+            (l.Coefficients, nameOverlap)
+            ||> Set.fold (fun m k -> Map.add k (l.Coefficients.[k] + r.Coefficients.[k]) m)
+            |> fun updatedCoefs -> Set.fold (fun m n -> Map.add n r.Coefficients.[n] m) updatedCoefs (r.Names - l.Names)
 
-        static member (-) (Value expr:LinearExpression<'Measure>, Decision.Value d:Decision<'Measure>) =
-            LinearExpression<'Measure>.Value (expr - d)
+        LinearExpression (newNames, newCoefs, newDecs, l.Offset + r.Offset)
 
-        static member (-) (Decision.Value d:Decision<'Measure>, Value expr:LinearExpression<'Measure>) =
-            LinearExpression<'Measure>.Value (d - expr)
+    static member inline (+) (AsLinearExpression l, AsLinearExpression r) =
+        let lSize = Set.count l.Names
+        let rSize = Set.count r.Names
 
-        static member (-) (Value lExpr:LinearExpression<'Measure>, Value rExpr:LinearExpression<'Measure>) =
-            LinearExpression<'Measure>.Value (lExpr - rExpr)
+        if lSize > rSize then
+            LinearExpression.Merge (l, r)
+        else
+            LinearExpression.Merge (r, l)
 
-        static member (<==) (Value l:LinearExpression<'Measure>, r:float<'Measure>) =
-            l <== float r
+    static member inline (*) (AsLinearExpression expr, AsFloat f) =
+        let newCoefs = Map.map (fun k v -> v * f) expr.Coefficients
+        LinearExpression (expr.Names, newCoefs, expr.Decisions, expr.Offset * f)
 
-        static member (<==) (l:float<'Measure>, Value r:LinearExpression<'Measure>) =
-            float l <== r
+    static member inline (*) (AsFloat f, AsLinearExpression expr) =
+        expr * f
 
-        static member (<==) (Value l:LinearExpression<'Measure>, Decision.Value r:Decision<'Measure>) =
-            l <== r
+    static member inline (-) (AsLinearExpression l, AsLinearExpression r) =
+        l + (-1.0 * r)
 
-        static member (<==) (Decision.Value l:Decision<'Measure>, Value r:LinearExpression<'Measure>) =
-            l <== r
+    static member inline (<==) (AsLinearExpression l, AsLinearExpression r) =
+        Inequality (l, LessOrEqual, r)
 
-        static member (<==) (Value l:LinearExpression<'Measure>, Value r:LinearExpression<'Measure>) =
-            l <== r
+    static member inline (==) (AsLinearExpression l, AsLinearExpression r) =
+        Equality (l, r)
 
-        static member (==) (Value l:LinearExpression<'Measure>, r:float<'Measure>) =
-            l == float r
-
-        static member (==) (l:float<'Measure>, Value r:LinearExpression<'Measure>) =
-            float l == r
-
-        static member (==) (Value l:LinearExpression<'Measure>, Decision.Value r:Decision<'Measure>) =
-            l == r
-
-        static member (==) (Decision.Value l:Decision<'Measure>, Value r:LinearExpression<'Measure>) =
-            l == r
-
-        static member (==) (Value l:LinearExpression<'Measure>, Value r:LinearExpression<'Measure>) =
-            l == r
-
-        static member (>==) (Value l:LinearExpression<'Measure>, r:float<'Measure>) =
-            l >== float r
-
-        static member (>==) (l:float<'Measure>, Value r:LinearExpression<'Measure>) =
-            float l >== r
-
-        static member (>==) (Value l:LinearExpression<'Measure>, Decision.Value r:Decision<'Measure>) =
-            l >== r
-
-        static member (>==) (Decision.Value l:Decision<'Measure>, Value r:LinearExpression<'Measure>) =
-            l >== r
-
-        static member (>==) (Value l:LinearExpression<'Measure>, Value r:LinearExpression<'Measure>) =
-            l >== r
-
+    static member inline (>==) (AsLinearExpression l, AsLinearExpression r) =
+        Inequality (l, GreaterOrEqual, r)
 
 type DecisionType<[<Measure>] 'Measure> =
     | Boolean
