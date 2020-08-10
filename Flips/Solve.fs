@@ -17,13 +17,13 @@ module internal ORTools =
         let decisionExpr =
             reducedExpr.Coefficients
             |> Map.toSeq
-            |> Seq.map (fun (decisionName, coefficient) -> coefficient * varMap.[decisionName])
+            |> Seq.map (fun (decisionName, coefficient) -> (float coefficient) * varMap.[decisionName])
             |> fun x -> 
                 match Seq.isEmpty x with 
                 | true -> LinearExpr() 
                 | false -> Seq.reduce (+) x
         
-        let resultExpr = reducedExpr.Offset + decisionExpr
+        let resultExpr = (float reducedExpr.Offset) + decisionExpr
         resultExpr
 
 
@@ -140,11 +140,11 @@ module internal Optano =
     let private buildExpression (varMap:Map<DecisionName, Variable>) (expr:LinearExpression) =
         let reducedExpr = Flips.Types.LinearExpression.Reduce expr
 
-        let constant = Expression.Sum([reducedExpr.Offset])
+        let constant = Expression.Sum([float reducedExpr.Offset])
         let variables =
             reducedExpr.Coefficients
             |> Map.toSeq
-            |> Seq.map (fun (decisionName, coefficient) -> coefficient * varMap.[decisionName])
+            |> Seq.map (fun (decisionName, coefficient) -> (float coefficient) * varMap.[decisionName])
             |> (fun terms -> Expression.Sum(terms))
 
         constant + variables

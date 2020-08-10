@@ -70,18 +70,18 @@ and [<NoComparison>][<CustomEquality>]
     ReducedLinearExpression =
     {
         DecisionTypes : Map<DecisionName, DecisionType>
-        Coefficients : Map<DecisionName, float>
-        Offset : float
+        Coefficients : Map<DecisionName, decimal>
+        Offset : decimal
     } with
-    static member private NearlyEquals (a:float) (b:float) : bool =
-        let aValue = System.BitConverter.DoubleToInt64Bits a
-        let bValue = System.BitConverter.DoubleToInt64Bits b
-        let result = 
-            if (aValue >>> 63) <> (bValue >>> 63) then
-                a = b
-            else
-                System.Math.Abs(aValue - bValue) <= 10_000L
-        result
+    //static member private NearlyEquals (a:decimal) (b:decimal) : bool =
+    //    let aValue = System.BitConverter.DoubleToInt64Bits a
+    //    let bValue = System.BitConverter.DoubleToInt64Bits b
+    //    let result = 
+    //        if (aValue >>> 63) <> (bValue >>> 63) then
+    //            a = b
+    //        else
+    //            System.Math.Abs(aValue - bValue) <= 10_000L
+    //    result
 
     override this.GetHashCode () =
         hash this
@@ -89,20 +89,20 @@ and [<NoComparison>][<CustomEquality>]
     override this.Equals(obj) =
         match obj with
         | :? ReducedLinearExpression as otherExpr ->
-            let offsetSame = ReducedLinearExpression.NearlyEquals this.Offset otherExpr.Offset
+            let offsetSame = this.Offset = otherExpr.Offset
 
             let leftMatchesRight =
                 (true, this.Coefficients)
                 ||> Map.fold (fun b k thisCoef -> 
                                 match Map.tryFind k otherExpr.Coefficients with
-                                | Some otherCoef -> b && (ReducedLinearExpression.NearlyEquals thisCoef otherCoef)
-                                | None -> b && (ReducedLinearExpression.NearlyEquals thisCoef 0.0))
+                                | Some otherCoef -> b && (thisCoef = otherCoef)
+                                | None -> b && (thisCoef = 0.0M))
 
             let evaluateRightElement b n otherCoef =
                 if this.Coefficients.ContainsKey(n) then
                     b
                 else
-                    let essentiallyZero = ReducedLinearExpression.NearlyEquals otherCoef 0.0
+                    let essentiallyZero = (otherCoef = 0.0M)
                     b && essentiallyZero
 
             let rightNonMatchesAreZero =
@@ -124,14 +124,14 @@ and [<NoComparison>][<CustomEquality>] LinearExpression =
         let initialState = {
             DecisionTypes = Map.empty
             Coefficients = Map.empty
-            Offset = 0.0
+            Offset = 0.0M
         }
 
-        let rec evaluateNode (multiplier:float, state:ReducedLinearExpression) (node:LinearExpression) : float * ReducedLinearExpression =
+        let rec evaluateNode (multiplier:decimal, state:ReducedLinearExpression) (node:LinearExpression) : decimal * ReducedLinearExpression =
             match node with
             | Empty -> multiplier, state
             | AddFloat (addToOffset, nodeExpr) -> 
-                let newState = {state with Offset = multiplier * addToOffset + state.Offset}
+                let newState = {state with Offset = multiplier * (decimal addToOffset) + state.Offset}
                 evaluateNode (multiplier, newState) nodeExpr
             | AddDecision ((nodeCoef , nodeDecision), nodeExpr) ->
                 match Map.tryFind nodeDecision.Name state.DecisionTypes with
@@ -139,23 +139,23 @@ and [<NoComparison>][<CustomEquality>] LinearExpression =
                     if existingType <> nodeDecision.Type then
                         invalidArg "DecisionType" "Cannot have different DecisionType for same DecisionName"
                     else
-                        let newCoefficients = Map.add nodeDecision.Name (state.Coefficients.[nodeDecision.Name] + nodeCoef * multiplier) state.Coefficients
+                        let newCoefficients = Map.add nodeDecision.Name (state.Coefficients.[nodeDecision.Name] + (decimal nodeCoef) * multiplier) state.Coefficients
                         let newState = {state with Coefficients = newCoefficients}
                         evaluateNode (multiplier, newState) nodeExpr
                 | None ->
                     let newDecisionTypes = Map.add nodeDecision.Name nodeDecision.Type state.DecisionTypes
-                    let newCoefficient = Map.add nodeDecision.Name (multiplier * nodeCoef) state.Coefficients
+                    let newCoefficient = Map.add nodeDecision.Name (multiplier * (decimal nodeCoef)) state.Coefficients
                     let newState = {state with DecisionTypes = newDecisionTypes; Coefficients = newCoefficient}
                     evaluateNode (multiplier, newState) nodeExpr
             | Multiply (nodeMultiplier, nodeExpr) ->
-                let newMultiplier = multiplier * nodeMultiplier
+                let newMultiplier = multiplier * (decimal nodeMultiplier)
                 evaluateNode (newMultiplier, state) nodeExpr
             | AddLinearExpression (lExpr, rExpr) ->
                 let (_, leftState) = evaluateNode (multiplier, state) lExpr
                 let (_,rightState) = evaluateNode (multiplier, leftState) rExpr
                 multiplier, rightState
 
-        let (_,reducedExpr) = evaluateNode (1.0, initialState) expr
+        let (_,reducedExpr) = evaluateNode (1.0M, initialState) expr
 
         reducedExpr
 
