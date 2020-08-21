@@ -249,7 +249,7 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
         let keys2 = lhs.Keys2 + rhs.Keys2
         let keys3 = lhs.Keys3 + rhs.Keys3
         let keys4 = lhs.Keys4 + rhs.Keys4
-        //let keySet = seq {for k1 in keys1 do for k2 in keys2 do for k3 in keys3 do for k4 in keys4 -> (k1, k2, k3, k4)}
+        //let keySet = seq {for k1 in keys1 do for k2 in keys2 do for k3 in keys3 do for k4 in keys4 -> struct (k1, k2, k3, k4)}
         //let newValues = TryFind.mergeAdd keySet lhs.TryFind rhs.TryFind
         //SMap4(keys1, keys2, keys3, keys4, newValues)
 
@@ -259,7 +259,7 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
             for idx2 in 0..keys2.Length - 1 do
                 for idx3 in 0..keys3.Length - 1 do
                     for idx4 in 0..keys4.Length - 1 do
-                        let key = struct (idx1, idx2, idx3, idx4)
+                        let key = struct (keys1.[idx1], keys2.[idx2], keys3.[idx3], keys4.[idx4])
                         match lhs.TryFind key, rhs.TryFind key with
                         | Some lValue, Some rValue -> 
                             newDict.Add(key, lValue + rValue)
