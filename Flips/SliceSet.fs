@@ -30,17 +30,17 @@ type SliceSet<[<EqualityConditionalOn>]'T when 'T : comparison>(comparer:ICompar
 
     new(values:Set<'T>) =
         let comparer = LanguagePrimitives.FastGenericComparer<'T>
-        let v = Set.toArray values
+        let v = Set.toArray values |> Array.sort
         SliceSet(comparer, v.AsMemory<'T>())
 
     new(values: 'T list) =
         let comparer = LanguagePrimitives.FastGenericComparer<'T>
-        let v = values |> List.distinct |> List.toArray
+        let v = values |> List.distinct |> List.toArray |> Array.sort
         SliceSet(comparer, v.AsMemory<'T>())
 
     new(values:seq<'T>) =
         let comparer = LanguagePrimitives.FastGenericComparer<'T>
-        let v = values |> Seq.distinct |> Seq.toArray
+        let v = values |> Seq.distinct |> Seq.toArray |> Array.sort
         SliceSet(comparer, v.AsMemory<'T>())
 
     interface IEnumerable<'T> with
@@ -54,6 +54,12 @@ type SliceSet<[<EqualityConditionalOn>]'T when 'T : comparison>(comparer:ICompar
 
     member internal _.Comparer = comparer
     member internal _.Values = values
+
+    member _.Item
+        with get (idx) =
+            values.Span.[idx]
+
+    member _.Length = values.Length
 
     member _.GreaterThan x =
 

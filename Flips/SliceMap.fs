@@ -74,7 +74,7 @@ module TryFind =
           | false, _ -> None
 
     let ofSeq (s:seq<'Key * 'Value>) : TryFind<'Key, 'Value> =
-        s 
+        s
         |> Seq.map (fun (k, v) -> KeyValuePair(k, v)) 
         |> Dictionary
         |> ofDictionary
