@@ -4,23 +4,25 @@ open System.Collections.Generic
 open Utilities
 
 type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 : comparison and 'Key3 : comparison and 'Key4 : comparison and 'Value : equality> 
-    (keys1:SliceSet<'Key1>, keys2:SliceSet<'Key2>, keys3:SliceSet<'Key3>, keys4:SliceSet<'Key4>, tryFind:TryFind<struct ('Key1 * 'Key2 * 'Key3 * 'Key4), 'Value>) =
+    (keys1:SliceSet<'Key1>, keys2:SliceSet<'Key2>, keys3:SliceSet<'Key3>, keys4:SliceSet<'Key4>, values:Dictionary<struct ('Key1 * 'Key2 * 'Key3 * 'Key4), 'Value>) =
 
     let keys1 = keys1
     let keys2 = keys2
     let keys3 = keys3
     let keys4 = keys4
-    let possibleKeys = seq {for k1 in keys1 do for k2 in keys2 do for k3 in keys3 do for k4 in keys4 -> struct (k1, k2, k3, k4)}
-    let tryFind = tryFind
+    let values = values
 
     new (s:seq<('Key1 * 'Key2 * 'Key3 * 'Key4) * 'Value>) =
         let keys1 = s |> Seq.map (fun ((x, y, z, a), v) -> x) |> SliceSet
         let keys2 = s |> Seq.map (fun ((x, y, z, a), v) -> y) |> SliceSet
         let keys3 = s |> Seq.map (fun ((x, y, z, a), v) -> z) |> SliceSet
         let keys4 = s |> Seq.map (fun ((x, y, z, a), v) -> a) |> SliceSet
-        let newS = s |> Seq.map (fun ((x,y,z,a), v) -> struct (x,y,z,a), v)
-        let tryFind = TryFind.ofSeq newS
-        SMap4 (keys1, keys2, keys3, keys4, tryFind)
+        let values = 
+            s
+            |> Seq.map (fun ((x,y,z,a), v) -> KeyValuePair(struct (x,y,z,a), v))
+            |> Dictionary
+        
+        SMap4 (keys1, keys2, keys3, keys4, values)
 
     new (m:Map<('Key1 * 'Key2 * 'Key3 * 'Key4), 'Value>) =
       let s = m |> Map.toSeq
@@ -30,12 +32,12 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
     member _.Keys2 = keys2
     member _.Keys3 = keys3
     member _.Keys4 = keys4
-    member _.PossibleKeys = possibleKeys
-    member _.TryFind = tryFind
+    member _.Values = values
 
     member _.AsMap () =
-        tryFind
-        |> TryFind.toMap possibleKeys
+        values
+        |> Seq.map (fun x -> x.Key, x.Value)
+        |> Map.ofSeq
 
     override this.ToString() =
         sprintf "SMap4 %O" (this.AsMap())
@@ -49,10 +51,10 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
     override this.GetHashCode () =
         hash (this.AsMap())
 
-    member this.ContainsKey k =
-        match tryFind k with
-        | Some _ -> true
-        | None -> false
+    //member this.ContainsKey k =
+    //    match tryFind k with
+    //    | Some _ -> true
+    //    | None -> false
 
     //// Slices
     //// 4D
@@ -260,8 +262,8 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
                 for idx3 in 0..keys3.Length - 1 do
                     for idx4 in 0..keys4.Length - 1 do
                         let key = struct (keys1.[idx1], keys2.[idx2], keys3.[idx3], keys4.[idx4])
-                        match lhs.TryFind key, rhs.TryFind key with
-                        | Some lValue, Some rValue -> 
+                        match lhs.Values.TryGetValue key, rhs.Values.TryGetValue key with
+                        | (true, lValue), Some rValue -> 
                             newDict.Add(key, lValue + rValue)
                         | Some lValue, None -> 
                             newDict.Add(key, lValue)
