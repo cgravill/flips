@@ -484,21 +484,23 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
     let k4Compare =  FSharp.Core.LanguagePrimitives.FastGenericComparer<'Key4>
 
     let compare ((ak1, ak2, ak3, ak4):struct ('Key1 * 'Key2 * 'Key3 * 'Key4), (bk1, bk2, bk3, bk4):struct ('Key1 * 'Key2 * 'Key3 * 'Key4)) =
-        let c1 = k1Compare.Compare(ak1, bk1)
-        let c2 = k2Compare.Compare(ak2, bk2)
-        let c3 = k3Compare.Compare(ak3, bk3)
-        let c4 = k4Compare.Compare(ak4, bk4)
+        //let c1 = k1Compare.Compare(ak1, bk1)
+        //let c2 = k2Compare.Compare(ak2, bk2)
+        //let c3 = k3Compare.Compare(ak3, bk3)
+        //let c4 = k4Compare.Compare(ak4, bk4)
 
-        if c1 = 0 then
-            if c2 = 0 then
-                if c3 = 0 then
-                    c4
-                else
-                    c3
-            else
-                c2
-        else
-            c1
+        //if c1 = 0 then
+        //    if c2 = 0 then
+        //        if c3 = 0 then
+        //            c4
+        //        else
+        //            c3
+        //    else
+        //        c2
+        //else
+        //    c1
+
+        k1Compare.Compare(ak1, bk1) * 1000 + k2Compare.Compare(ak2, bk2) * 100 + k3Compare.Compare(ak3, bk3) * 10 + k4Compare.Compare(ak4, bk4)
 
 
     let keys = keys
@@ -508,7 +510,9 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
 
     //member this.Values = m |> Map.toSeq |> Seq.map (fun ((k1, k2, k3, k4), v) -> struct (k1, k2, k3, k4), v) |> Map.ofSeq
 
-    member _.Compare = compare
+    //member _.Compare = compare
+    member _.Compare ((ak1, ak2, ak3, ak4):struct ('Key1 * 'Key2 * 'Key3 * 'Key4), (bk1, bk2, bk3, bk4):struct ('Key1 * 'Key2 * 'Key3 * 'Key4)) =
+        k1Compare.Compare(ak1, bk1) * 1000 + k2Compare.Compare(ak2, bk2) * 100 + k3Compare.Compare(ak3, bk3) * 10 + k4Compare.Compare(ak4, bk4)
     member _.Keys = keys
     member _.Values = values
 
@@ -684,7 +688,7 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
 
         while (aIdx < a.Values.Length && bIdx < b.Values.Length) do
             
-            let c = a.Compare(a.Keys.Span.[aIdx], b.Keys.Span.[bIdx])
+            let c = a.Compare (a.Keys.Span.[aIdx], b.Keys.Span.[bIdx])
             if c = 0 then
                 newKeys.[outIdx] <- a.Keys.Span.[aIdx]
                 newValues.[outIdx] <- a.Values.Span.[aIdx] * b.Values.Span.[bIdx]
@@ -750,7 +754,7 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
 
         while (aIdx < a.Values.Length && bIdx < b.Values.Length) do
             
-            let c = a.Compare(a.Keys.Span.[aIdx], b.Keys.Span.[bIdx])
+            let c = a.Compare (a.Keys.Span.[aIdx], b.Keys.Span.[bIdx])
 
             if c < 0 then
                 newKeys.[outIdx] <- a.Keys.Span.[aIdx]
