@@ -39,15 +39,15 @@ module Utilities =
         |> fun newLhs -> Seq.fold (fun m (k, v) -> Map.add k v m) newLhs newRhsValues
 
 
-    let internal SliceFilterBuilder<'a when 'a : comparison> (comparer:IComparer<_>) (f:SliceType<'a>) =
+    let internal SliceFilterBuilder<'a when 'a : comparison> (compare:('a * 'a) -> int) (f:SliceType<'a>) =
         match f with
         | All -> fun _ -> true
-        | Equals x -> fun k -> comparer.Compare(x, k) = 0
-        | GreaterThan x -> fun k -> comparer.Compare(x, k) > 0
-        | GreaterOrEqual x -> fun k -> comparer.Compare(x, k) >= 0
-        | LessThan x -> fun k -> comparer.Compare(x, k) < 0
-        | LessOrEqual x -> fun k -> comparer.Compare(x, k) <= 0
-        | Between (lowerBound, upperBound) -> fun k -> comparer.Compare(lowerBound, k) >= 0 && comparer.Compare(upperBound, k) <= 0
+        | Equals x -> fun k -> compare (x, k) = 0
+        | GreaterThan x -> fun k -> compare (x, k) > 0
+        | GreaterOrEqual x -> fun k -> compare (x, k) >= 0
+        | LessThan x -> fun k -> compare (x, k) < 0
+        | LessOrEqual x -> fun k -> compare (x, k) <= 0
+        | Between (lowerBound, upperBound) -> fun k -> compare (lowerBound, k) >= 0 && compare (upperBound, k) <= 0
         | In set -> fun k -> Set.contains k set
         | NotIn set -> fun k -> not (Set.contains k set)
         | Where f -> f
@@ -61,15 +61,15 @@ module Utilities =
         let r = Seq.sum k1
         ((^a) : (static member Sum: ^a -> ^b) r)
 
-module internal Memory =
+module SliceData =
 
-    let findIndexOf (comparer:IComparer<_>) startingLowerBound x (values:Memory<_>) =
+    let findIndexOf (compare:('a * 'a) -> int) startingLowerBound x (values:Memory<_>) =
         let mutable lowerBound = startingLowerBound
         let mutable upperBound = values.Length - 1
         let mutable idx = (lowerBound + upperBound) / 2
 
         while lowerBound <= upperBound do
-            let x = comparer.Compare(values.Span.[idx], x)
+            let x = compare (values.Span.[idx], x)
             if x <= 0 then
                 lowerBound <- idx + 1
                 idx <- (lowerBound + upperBound) / 2
@@ -79,27 +79,27 @@ module internal Memory =
 
         idx
 
-    let contains (comparer:IComparer<_>) x (values:Memory<_>) =
+    let contains (compare:('a * 'a) -> int) x (values:Memory<_>) =
         let mutable idx = 0
         let mutable doesContain = false
 
         while (idx < values.Length && not doesContain) do
-            let c = comparer.Compare(values.Span.[idx], x)
+            let c = compare (values.Span.[idx], x)
             if c = 0 then
                 doesContain <- true
             idx <- idx + 1
 
         doesContain
 
-    let getItem (comparer:IComparer<_>) k (keys:Memory<_>, values:Memory<_>) =
-        let idx = findIndexOf comparer 0 k keys
+    let getItem (compare:('a * 'a) -> int) k (keys:Memory<_>, values:Memory<_>) =
+        let idx = findIndexOf compare 0 k keys
 
         if keys.Span.[idx] = k then
             values.Span.[idx]
         else
             invalidArg "Key" "Key not in SliceMap"
 
-    let filterByKey f (keys:Memory<_>, values:Memory<_>) =
+    let filterByKey f (reKey:('OldKey -> 'NewKey)) (keys:Memory<_>, values:Memory<_>) =
         let newValues = Array.zeroCreate(values.Length)
         let newKeys = Array.zeroCreate(keys.Length)
 
@@ -108,7 +108,7 @@ module internal Memory =
 
         while idx < keys.Length do
             if f keys.Span.[idx] then
-                newKeys.[outIdx] <- keys.Span.[idx]
+                newKeys.[outIdx] <- reKey keys.Span.[idx]
                 newValues.[outIdx] <- values.Span.[idx]
                 outIdx <- outIdx + 1
             
@@ -126,7 +126,7 @@ module internal Memory =
         newValues.AsMemory()
 
 
-    let hadamardProduct (comparer:IComparer<_>) (aKeys:Memory<_>, aValues:Memory<_>) (bKeys:Memory<_>, bValues:Memory<_>) =
+    let inline hadamardProduct (compare:('a * 'b) -> int) (aKeys:Memory<_>, aValues:Memory<_>) (bKeys:Memory<_>, bValues:Memory<_>) =
             let newKeys = Array.zeroCreate(Math.Min(aKeys.Length, bKeys.Length))
             let newValues = Array.zeroCreate(Math.Min(aValues.Length, bValues.Length))
             let mutable aIdx = 0
@@ -135,7 +135,7 @@ module internal Memory =
 
             while (aIdx < aKeys.Length && bIdx < bKeys.Length) do
         
-                let c = comparer.Compare (aKeys.Span.[aIdx], bKeys.Span.[bIdx])
+                let c = compare (aKeys.Span.[aIdx], bKeys.Span.[bIdx])
                 if c = 0 then
                     newKeys.[outIdx] <- aKeys.Span.[aIdx]
                     newValues.[outIdx] <- aValues.Span.[aIdx] * bValues.Span.[bIdx]
@@ -149,7 +149,7 @@ module internal Memory =
 
             newKeys.AsMemory(0, outIdx), newValues.AsMemory(0, outIdx)
 
-    let add (comparer:IComparer<_>) (aKeys:Memory<_>, aValues:Memory<_>) (bKeys:Memory<_>, bValues:Memory<_>) =
+    let inline add (compare:('a * 'a) -> int) (aKeys:Memory<'a>, aValues:Memory<'v>) (bKeys:Memory<'a>, bValues:Memory<'v>) =
         let newKeys = Array.zeroCreate(aKeys.Length + bKeys.Length)
         let newValues = Array.zeroCreate(aValues.Length + bValues.Length)
 
@@ -159,7 +159,7 @@ module internal Memory =
 
         while (aIdx < aValues.Length && bIdx < bValues.Length) do
         
-            let c = comparer.Compare(aValues.Span.[aIdx], bValues.Span.[bIdx])
+            let c = compare (aKeys.Span.[aIdx], bKeys.Span.[bIdx])
 
             if c < 0 then
                 newKeys.[outIdx] <- aKeys.Span.[aIdx]
@@ -201,10 +201,46 @@ module internal Memory =
 
         acc
 
+    let toSeq (keys:Memory<_>, values:Memory<_>) =
+        if keys.Length <> values.Length then
+            invalidArg "Values" "The number of Values must match the number of Keys"
+
+        seq {for i in 0..keys.Length -> keys.Span.[i], values.Span.[i]}
+
+
+    let toMap (keys:Memory<_>, values:Memory<_>) =
+        if keys.Length <> values.Length then
+            invalidArg "Values" "The number of Values must match the number of Keys"
+
+        seq {for i in 0..keys.Length -> keys.Span.[i], values.Span.[i]}
+        |> Map.ofSeq
+
+
+    let ofSeq (s:seq<'Key*'Value>) =
+        let sorted = s |> Seq.sortBy fst
+
+        let keys =
+            sorted
+            |> Seq.map fst
+            |> Array.ofSeq
+            |> fun x -> x.AsMemory()
+
+        let values =
+            sorted
+            |> Seq.map snd
+            |> Array.ofSeq
+            |> fun x -> x.AsMemory()
+
+        keys, values
+
+
+    let ofMap (m:Map<_,_>) =
+        m |> Map.toSeq |> ofSeq
+
 
 
 type SMap<'Key, 'Value when 'Key : comparison and 'Value : equality> (keys:Memory<'Key>, values:Memory<'Value>) =
-    let kComparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<'Key>
+    let kComparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<'Key>.Compare
 
     let keys = keys
     let values = values
@@ -212,20 +248,6 @@ type SMap<'Key, 'Value when 'Key : comparison and 'Value : equality> (keys:Memor
     member _.Comparer = kComparer
     member _.Keys = keys
     member _.Values = values
-
-    new(m:seq<'Key * 'Value>) =
-        let keys =
-            m 
-            |> Seq.map fst
-            |> Array.ofSeq
-            |> fun x -> x.AsMemory()
-
-        let values =
-            m 
-            |> Seq.map snd
-            |> Array.ofSeq
-            |> fun x -> x.AsMemory()
-        SMap (keys, values)
 
     override this.ToString() =
         sprintf "SMap %O" this.Values
@@ -239,7 +261,7 @@ type SMap<'Key, 'Value when 'Key : comparison and 'Value : equality> (keys:Memor
         hash this.Values
 
     member this.ContainsKey k =
-        Memory.contains this.Comparer k this.Keys
+        SliceData.contains this.Comparer k this.Keys
 
     member this.AsMap =
         seq {
@@ -253,33 +275,33 @@ type SMap<'Key, 'Value when 'Key : comparison and 'Value : equality> (keys:Memor
     member this.Item
         with get (k1f) =
             let filter = Utilities.SliceFilterBuilder this.Comparer k1f
-            Memory.filterByKey filter (this.Keys, this.Values)
+            SliceData.filterByKey filter id (this.Keys, this.Values)
             |> SMap
 
     // 0D (aka GetItem)
     member this.Item
         with get(k) =
-            Memory.getItem this.Comparer k (this.Keys, this.Values)
+            SliceData.getItem this.Comparer k (this.Keys, this.Values)
 
     // Operators
     static member inline (*) (coefficient, sm:SMap<_,_>) =
-        let newValues = Memory.scale coefficient sm.Values
+        let newValues = SliceData.scale coefficient sm.Values
         SMap (sm.Keys, newValues)
 
     static member inline (*) (sm:SMap<_,_>, coefficient) =
-        let newValues = Memory.scale coefficient sm.Values
+        let newValues = SliceData.scale coefficient sm.Values
         SMap (sm.Keys, newValues)
 
     static member inline (.*) (a:SMap<_,_>, b:SMap<_,_>) =
-        Memory.hadamardProduct a.Comparer (a.Keys, a.Values) (b.Keys, b.Values)
+        SliceData.hadamardProduct a.Comparer (a.Keys, a.Values) (b.Keys, b.Values)
         |> SMap
 
     static member inline (+) (a:SMap<_,_>, b:SMap<_,_>) =
-        Memory.add a.Comparer (a.Keys, a.Values) (b.Keys, b.Values)
+        SliceData.add a.Comparer (a.Keys, a.Values) (b.Keys, b.Values)
         |> SMap
 
     static member inline Sum (m:SMap<_,_>) =
-        Memory.sum m.Values
+        SliceData.sum m.Values
 
     //static member inline Sum (m:SMap<_,Flips.Types.Decision>) =
     //    m.Values |> Map.map (fun _ d -> 1.0 * d) |> Map.toSeq |> Seq.sumBy snd
@@ -290,345 +312,352 @@ type SMap<'Key, 'Value when 'Key : comparison and 'Value : equality> (keys:Memor
 
 module SMap =
 
+    let ofSeq (s:seq<'Key * 'Value>) =
+        s |> SliceData.ofSeq |> SMap
+
+    let toSeq (m:SMap<_,_>) =
+        SliceData.toSeq (m.Keys, m.Values)
+
     let ofMap m =
         m |> SMap
 
     let toMap (m:SMap<_,_>) =
-        m.Values
+        SliceData.toMap (m.Keys, m.Values)
 
     let ofList m =
-        m |> Map.ofList |> SMap
+        m |> ofSeq
 
     let toList (m:SMap<_,_>) =
-        m.Values |> Map.toList
-
-    let ofSeq m =
-        m |> Map.ofSeq |> SMap
-
-    let toSeq (m:SMap<_,_>) =
-        m.Values |> Map.toSeq
+        m |> toSeq |> List.ofSeq
 
     let ofArray m =
-        m |> Map.ofArray |> SMap
+        m |> SMap
 
     let toArray (m:SMap<_,_>) =
-        m.Values |> Map.toArray
+        m |> toSeq |> Array.ofSeq
 
     let containsKey k (m:SMap<_,_>) =
-        Map.containsKey k m.Values
+        SliceData.contains m.Comparer k m.Keys
 
 
-type SMap2<'Key1, 'Key2, 'Value when 'Key1 : comparison and 'Key2 : comparison and 'Value : equality> (m:Map<('Key1 * 'Key2),'Value>) =
+type SMap2<'Key1, 'Key2, 'Value when 'Key1 : comparison and 'Key2 : comparison and 'Value : equality> (keys:Memory<struct ('Key1 * 'Key2)>, values:Memory<'Value>) =
+    let k1Compare = FSharp.Core.LanguagePrimitives.FastGenericComparer<'Key1>.Compare
+    let k2Compare = FSharp.Core.LanguagePrimitives.FastGenericComparer<'Key2>.Compare
 
-    member this.Values = m
+    let compare ((ak1, ak2):struct ('Key1 * 'Key2), (bk1, bk2):struct ('Key1 * 'Key2)) =
+        let c1 = k1Compare (ak1, bk1)
+        let c2 = k2Compare (ak2, bk2)
 
-    override this.ToString () = 
-        sprintf "SMap2 %O" this.Values
+        if c1 = 0 then
+            c2
+        else
+            c1
+
+    let keyFilterBuilder k1f k2f =
+        let k1Filter = Utilities.SliceFilterBuilder k1Compare k1f
+        let k2Filter = Utilities.SliceFilterBuilder k2Compare k2f
+        let keyFilter struct (k1, k2) = k1Filter k1 && k2Filter k2
+        keyFilter
+
+    let keys = keys
+    let values = values
+
+    member _.Comparer = compare
+    member _.Keys = keys
+    member _.Values = values
+
+    override this.ToString() =
+        sprintf "SMap %O" this.Values
 
     override this.Equals(obj) =
         match obj with
-        | :? SMap2<'Key1, 'Key2, 'Value > as s -> this.Values = s.Values
+        | :? SMap2<'Key1, 'Key2, 'Value> as s -> this.Values = s.Values
         | _ -> false
 
     override this.GetHashCode () =
         hash this.Values
 
     member this.ContainsKey k =
-        Map.containsKey k this.Values
+        SliceData.contains this.Comparer k this.Keys
 
     member this.AsMap =
-        this.Values
-
-    // Filter Values
-    member private this.FilterValues k1f k2f =
-        let k1Filter = SliceFilterBuilder k1f
-        let k2Filter = SliceFilterBuilder k2f
-        
-        this.Values
-        |> Map.filter (fun (k1, k2) _ -> k1Filter k1 && k2Filter k2)
-        |> Map.toSeq
+        seq {
+            for idx in 0 .. this.Keys.Length ->
+                keys.Span.[idx], values.Span.[idx]
+        }
+        |> Map.ofSeq
 
     // Slices
     // 2D
     member this.Item
         with get (k1f, k2f) =
-            this.FilterValues k1f k2f |> Map.ofSeq |> SMap2
+            let keyFilter = keyFilterBuilder k1f k2f
+            let reKey = id
+            SliceData.filterByKey keyFilter reKey (this.Keys, this.Values)
+            |> SMap2
 
     // 1D
     member this.Item
         with get (k1, k2f) =
-            this.FilterValues (Equals k1) k2f 
-            |> Seq.map (fun ((_, k2), v) -> k2, v) 
-            |> Map.ofSeq 
+            let keyFilter = keyFilterBuilder (Equals k1) k2f
+            let reKey struct (k1, k2) = k2
+            SliceData.filterByKey keyFilter reKey (this.Keys, this.Values)
             |> SMap
 
     member this.Item
         with get (k1f, k2) =
-            this.FilterValues k1f (Equals k2)
-            |> Seq.map (fun ((k1, _), v) -> k1, v)
-            |> Map.ofSeq
+            let keyFilter = keyFilterBuilder k1f (Equals k2)
+            let reKey struct (k1, k2) = k2
+            SliceData.filterByKey keyFilter reKey (this.Keys, this.Values)
             |> SMap
 
     // 0D (aka GetItem)
     member this.Item
         with get(k1, k2) =
-            this.Values.[(k1, k2)]
+            SliceData.getItem this.Comparer (k1, k2) (this.Keys, this.Values)
 
     // Operators
-    static member inline (*) (lhs, rhs:SMap2<_,_,_>) =
-        rhs.Values
-        |> Map.map (fun _ v -> v * lhs)
+    static member inline (*) (coefficient, sm:SMap2<_,_,_>) =
+        let newValues = SliceData.scale coefficient sm.Values
+        SMap2 (sm.Keys, newValues)
+
+    static member inline (*) (sm:SMap2<_,_,_>, coefficient) =
+        let newValues = SliceData.scale coefficient sm.Values
+        SMap2 (sm.Keys, newValues)
+
+    static member inline (.*) (a:SMap2<_,_,_>, b:SMap2<_,_,_>) =
+        SliceData.hadamardProduct a.Comparer (a.Keys, a.Values) (b.Keys, b.Values)
         |> SMap2
 
-    static member inline (*) (lhs:SMap2<_,_,_>, rhs) =
-        lhs.Values
-        |> Map.map (fun _ v -> v * rhs)
+    static member inline (.*) (sm2:SMap2<_,_,_>, sm:SMap<_,_>) =
+        let comparer (struct (k1, k2), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (k2, bKey)
+        SliceData.hadamardProduct comparer (sm2.Keys, sm2.Values) (sm.Keys, sm.Values)
         |> SMap2
 
-    static member inline (.*) (lhs:SMap2<_,_,_>, rhs:SMap2<_,_,_>) =
-        let rhs = rhs.Values
-        lhs.Values
-        |> Map.filter (fun (k1, k2) _ -> rhs.ContainsKey (k1, k2))
-        |> Map.map (fun (k1, k2) v -> v * rhs.[(k1, k2)])
+    static member inline (.*) (sm:SMap<_,_>, sm2:SMap2<_,_,_>) =
+        let comparer (struct (k1, k2), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (k1, bKey)
+        SliceData.hadamardProduct comparer (sm2.Keys, sm2.Values) (sm.Keys, sm.Values)
         |> SMap2
 
-    static member inline (.*) (lhs:SMap2<_,_,_>, rhs:SMap<_,_>) =
-        let rhs = rhs.Values
-        lhs.Values
-        |> Map.filter (fun (k1, k2) _ -> rhs.ContainsKey k2)
-        |> Map.map (fun (k1, k2) v -> v * rhs.[k2])
-        |> SMap2
-
-    static member inline (.*) (lhs:SMap<_,_>, rhs:SMap2<_,_,_>) =
-        let rlhs = lhs.Values
-        rhs.Values
-        |> Map.filter (fun (k1, k2) _ -> lhs.ContainsKey k1)
-        |> Map.map (fun (k1, k2) v -> v * lhs.[k1])
-        |> SMap2
-
-    static member inline (+) (lhs:SMap2<_,_,_>, rhs:SMap2<_,_,_>) =
-        match Map.count lhs.Values > Map.count rhs.Values with
-        | true ->  mergeAddition lhs.Values rhs.Values
-        | false -> mergeAddition rhs.Values lhs.Values
+    static member inline (+) (a:SMap2<_,_,_>, b:SMap2<_,_,_>) =
+        SliceData.add a.Comparer (a.Keys, a.Values) (b.Keys, b.Values)
         |> SMap2
 
     static member inline Sum (m:SMap2<_,_,_>) =
-        m.Values |> Map.toSeq |> Seq.sumBy snd
+        SliceData.sum m.Values
 
-    static member inline Sum (m:SMap2<_,_,Flips.Types.Decision>) =
-        m.Values |> Map.map (fun _ d -> 1.0 * d) |> Map.toSeq |> Seq.sumBy snd
+    //static member inline Sum (m:SMap2<_,_,Flips.Types.Decision>) =
+    //    m.Values |> Map.map (fun _ d -> 1.0 * d) |> Map.toSeq |> Seq.sumBy snd
 
-    static member inline Sum (m:SMap2<_,_,Flips.UnitsOfMeasure.Types.Decision<_>>) =
-        m.Values |> Map.map (fun _ d -> 1.0 * d) |> Map.toSeq |> Seq.sumBy snd
+    //static member inline Sum (m:SMap2<_,_,Flips.UnitsOfMeasure.Types.Decision<_>>) =
+    //    m.Values |> Map.map (fun _ d -> 1.0 * d) |> Map.toSeq |> Seq.sumBy snd
 
 
 module SMap2 =
 
-    let ofMap m =
-        m |> SMap2
-
-    let toMap (m:SMap2<_,_,_>) =
-        m.Values
-
-    let ofList m =
-        m |> Map.ofList |> SMap2
-
-    let toList (m:SMap2<_,_,_>) =
-        m.Values |> Map.toList
-
-    let ofSeq m =
-        m |> Map.ofSeq |> SMap2
+    let ofSeq (s:seq<('Key1 * 'Key2) * 'Value>) =
+        s |> Seq.map (fun ((k1, k2), v) -> struct (k1, k2), v ) |> SliceData.ofSeq |> SMap2
 
     let toSeq (m:SMap2<_,_,_>) =
-        m.Values |> Map.toSeq
-
-    let ofArray m =
-        m |> Map.ofArray |> SMap2
-
-    let toArray (m:SMap2<_,_,_>) =
-        m.Values |> Map.toArray
-
-    let containsKey k (m:SMap2<_,_,_>) =
-        Map.containsKey k m.Values
-
-    let inline reKey f m =
-        m |> toSeq |> Seq.map (fun (k, v) -> (f k), v) |> ofSeq
-
-
-type SMap3<'Key1, 'Key2, 'Key3, 'Value when 'Key1 : comparison and 'Key2 : comparison and 'Key3 : comparison and 'Value : equality> (m:Map<('Key1 * 'Key2 * 'Key3),'Value>) =
-
-    member this.Values = m
-
-    override this.ToString() =
-        sprintf "SMap3 %O" this.Values
-
-    override this.Equals(obj) =
-        match obj with
-        | :? SMap3<'Key1, 'Key2, 'Key3, 'Value> as s -> this.Values = s.Values
-        | _ -> false
-
-    override this.GetHashCode () =
-        hash this.Values
-
-    member this.ContainsKey k =
-        Map.containsKey k this.Values
-
-    member this.AsMap =
-        this.Values
-
-    // Filter Values
-    member private this.FilterValues k1f k2f k3f =
-        let k1Filter = SliceFilterBuilder k1f
-        let k2Filter = SliceFilterBuilder k2f
-        let k3Filter = SliceFilterBuilder k3f
-        
-        this.Values
-        |> Map.filter (fun (k1, k2, k3) _ -> k1Filter k1 && k2Filter k2 && k3Filter k3)
-        |> Map.toSeq
-
-    // Slices
-    // 3D
-    member this.Item
-        with get (k1f, k2f, k3f) =
-            this.FilterValues k1f k2f k3f |> Map.ofSeq |> SMap3
-
-    // 2D
-    member this.Item
-        with get (k1, k2f, k3f) =
-            this.FilterValues (Equals k1) k2f k3f
-            |> Seq.map (fun ((k1, k2, k3), v) -> (k2, k3), v) 
-            |> Map.ofSeq 
-            |> SMap2
-
-    member this.Item
-        with get (k1f, k2, k3f) =
-            this.FilterValues k1f (Equals k2) k3f
-            |> Seq.map (fun ((k1, k2, k3), v) -> (k1, k3), v) 
-            |> Map.ofSeq 
-            |> SMap2
-
-    member this.Item
-        with get (k1f, k2f, k3) =
-            this.FilterValues k1f k2f (Equals k3)
-            |> Seq.map (fun ((k1, k2, k3), v) -> (k1, k2), v) 
-            |> Map.ofSeq 
-            |> SMap2
-
-    // 1D
-    member this.Item
-        with get (k1, k2, k3f) =
-            this.FilterValues (Equals k1) (Equals k2) k3f
-            |> Seq.map (fun ((k1, k2, k3), v) -> k3, v) 
-            |> Map.ofSeq 
-            |> SMap
-
-    member this.Item
-        with get (k1, k2f, k3) =
-            this.FilterValues (Equals k1) k2f (Equals k3)
-            |> Seq.map (fun ((k1, k2, k3), v) -> k2, v) 
-            |> Map.ofSeq 
-            |> SMap
-
-    member this.Item
-        with get (k1f, k2, k3) =
-            this.FilterValues k1f (Equals k2) (Equals k3)
-            |> Seq.map (fun ((k1, k2, k3), v) -> k1, v) 
-            |> Map.ofSeq 
-            |> SMap
-
-    // 0D (aka GetItem)
-    member this.Item
-        with get(k1, k2, k3) =
-            this.Values.[(k1, k2, k3)] 
-
-    // Operators
-    static member inline (*) (lhs, rhs:SMap3<_,_,_,_>) =
-        rhs.Values
-        |> Map.map (fun k v -> lhs * v)
-        |> SMap3
-
-    static member inline (*) (lhs:SMap3<_,_,_,_>, rhs) =
-        lhs.Values
-        |> Map.map (fun k v -> rhs * v)
-        |> SMap3
-
-    static member inline (.*) (lhs:SMap3<_,_,_,_>, rhs:SMap3<_,_,_,_>) =
-        lhs.Values
-        |> Map.filter (fun k _ -> rhs.ContainsKey k)
-        |> Map.map (fun (k1, k2, k3) v -> v * rhs.[k1, k2, k3])
-        |> SMap3
-
-    static member inline (.*) (a:SMap3<_,_,_,_>, b:SMap2<_,_,_>) =
-        a.Values
-        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey (k2, k3))
-        |> Map.map (fun (k1, k2, k3) v -> v * b.[k2, k3])
-        |> SMap3
-
-    static member inline (.*) (b:SMap2<_,_,_>, a:SMap3<_,_,_,_>) =
-        a.Values
-        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey (k1, k2))
-        |> Map.map (fun (k1, k2, k3) v -> v * b.[k1, k2])
-        |> SMap3
-
-    static member inline (.*) (a:SMap3<_,_,_,_>, b:SMap<_,_>) =
-        a.Values
-        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey k3)
-        |> Map.map (fun (k1, k2, k3) v -> v * b.[k3])
-        |> SMap3
-
-    static member inline (.*) (b:SMap<_,_>, a:SMap3<_,_,_,_>) =
-        a.Values
-        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey k1)
-        |> Map.map (fun (k1, k2, k3) v -> v * b.[k1])
-        |> SMap3
-
-    static member inline (+) (lhs:SMap3<_,_,_,_>, rhs:SMap3<_,_,_,_>) =
-        match Map.count lhs.Values > Map.count rhs.Values with
-        | true ->  mergeAddition lhs.Values rhs.Values
-        | false -> mergeAddition rhs.Values lhs.Values
-        |> SMap3
-
-    static member inline Sum (m:SMap3<_,_,_,_>) =
-        m.Values |> Map.toSeq |> Seq.sumBy snd
-
-    static member inline Sum (m:SMap3<_,_,_,Flips.Types.Decision>) =
-        m.Values |> Map.map (fun _ d -> 1.0 * d) |> Map.toSeq |> Seq.sumBy snd
-
-    static member inline Sum (m:SMap3<_,_,_,Flips.UnitsOfMeasure.Types.Decision<_>>) =
-        m.Values |> Map.map (fun _ d -> 1.0 * d) |> Map.toSeq |> Seq.sumBy snd
-
-
-module SMap3 =
+        SliceData.toSeq (m.Keys, m.Values)
+        |> Seq.map (fun (struct (k1, k2), v) -> (k1, k2), v)
 
     let ofMap m =
-        m |> SMap3
+        m |> Map.toSeq |> ofSeq
 
-    let toMap (m:SMap3<_,_,_,_>) =
-        m.Values
+    let toMap (m:SMap2<_,_,_>) =
+        m |> toSeq |> Map.ofSeq
 
     let ofList m =
-        m |> Map.ofList |> SMap3
+        m |> List.toSeq |> ofSeq
 
-    let toList (m:SMap3<_,_,_,_>) =
-        m.Values |> Map.toList
-
-    let ofSeq m =
-        m |> Map.ofSeq |> SMap3
-
-    let toSeq (m:SMap3<_,_,_,_>) =
-        m.Values |> Map.toSeq
+    let toList (m:SMap2<_,_,_>) =
+        m |> toSeq |> List.ofSeq
 
     let ofArray m =
-        m |> Map.ofArray |> SMap3
+        m |> Array.toSeq |> ofSeq
 
-    let toArray (m:SMap3<_,_,_,_>) =
-        m.Values |> Map.toArray
+    let toArray (m:SMap2<_,_,_>) =
+        m |> toSeq |> Array.ofSeq
 
-    let containsKey k (m:SMap3<_,_,_,_>) =
-        Map.containsKey k m.Values
+    let containsKey k (m:SMap2<_,_,_>) =
+        SliceData.contains m.Comparer k m.Keys
 
-    let inline reKey f m =
-        m |> toSeq |> Seq.map (fun (k, v) -> (f k), v) |> ofSeq
+
+//type SMap3<'Key1, 'Key2, 'Key3, 'Value when 'Key1 : comparison and 'Key2 : comparison and 'Key3 : comparison and 'Value : equality> (m:Map<('Key1 * 'Key2 * 'Key3),'Value>) =
+
+//    member this.Values = m
+
+//    override this.ToString() =
+//        sprintf "SMap3 %O" this.Values
+
+//    override this.Equals(obj) =
+//        match obj with
+//        | :? SMap3<'Key1, 'Key2, 'Key3, 'Value> as s -> this.Values = s.Values
+//        | _ -> false
+
+//    override this.GetHashCode () =
+//        hash this.Values
+
+//    member this.ContainsKey k =
+//        Map.containsKey k this.Values
+
+//    member this.AsMap =
+//        this.Values
+
+//    // Filter Values
+//    member private this.FilterValues k1f k2f k3f =
+//        let k1Filter = SliceFilterBuilder k1f
+//        let k2Filter = SliceFilterBuilder k2f
+//        let k3Filter = SliceFilterBuilder k3f
+        
+//        this.Values
+//        |> Map.filter (fun (k1, k2, k3) _ -> k1Filter k1 && k2Filter k2 && k3Filter k3)
+//        |> Map.toSeq
+
+//    // Slices
+//    // 3D
+//    member this.Item
+//        with get (k1f, k2f, k3f) =
+//            this.FilterValues k1f k2f k3f |> Map.ofSeq |> SMap3
+
+//    // 2D
+//    member this.Item
+//        with get (k1, k2f, k3f) =
+//            this.FilterValues (Equals k1) k2f k3f
+//            |> Seq.map (fun ((k1, k2, k3), v) -> (k2, k3), v) 
+//            |> Map.ofSeq 
+//            |> SMap2
+
+//    member this.Item
+//        with get (k1f, k2, k3f) =
+//            this.FilterValues k1f (Equals k2) k3f
+//            |> Seq.map (fun ((k1, k2, k3), v) -> (k1, k3), v) 
+//            |> Map.ofSeq 
+//            |> SMap2
+
+//    member this.Item
+//        with get (k1f, k2f, k3) =
+//            this.FilterValues k1f k2f (Equals k3)
+//            |> Seq.map (fun ((k1, k2, k3), v) -> (k1, k2), v) 
+//            |> Map.ofSeq 
+//            |> SMap2
+
+//    // 1D
+//    member this.Item
+//        with get (k1, k2, k3f) =
+//            this.FilterValues (Equals k1) (Equals k2) k3f
+//            |> Seq.map (fun ((k1, k2, k3), v) -> k3, v) 
+//            |> Map.ofSeq 
+//            |> SMap
+
+//    member this.Item
+//        with get (k1, k2f, k3) =
+//            this.FilterValues (Equals k1) k2f (Equals k3)
+//            |> Seq.map (fun ((k1, k2, k3), v) -> k2, v) 
+//            |> Map.ofSeq 
+//            |> SMap
+
+//    member this.Item
+//        with get (k1f, k2, k3) =
+//            this.FilterValues k1f (Equals k2) (Equals k3)
+//            |> Seq.map (fun ((k1, k2, k3), v) -> k1, v) 
+//            |> Map.ofSeq 
+//            |> SMap
+
+//    // 0D (aka GetItem)
+//    member this.Item
+//        with get(k1, k2, k3) =
+//            this.Values.[(k1, k2, k3)] 
+
+//    // Operators
+//    static member inline (*) (lhs, rhs:SMap3<_,_,_,_>) =
+//        rhs.Values
+//        |> Map.map (fun k v -> lhs * v)
+//        |> SMap3
+
+//    static member inline (*) (lhs:SMap3<_,_,_,_>, rhs) =
+//        lhs.Values
+//        |> Map.map (fun k v -> rhs * v)
+//        |> SMap3
+
+//    static member inline (.*) (lhs:SMap3<_,_,_,_>, rhs:SMap3<_,_,_,_>) =
+//        lhs.Values
+//        |> Map.filter (fun k _ -> rhs.ContainsKey k)
+//        |> Map.map (fun (k1, k2, k3) v -> v * rhs.[k1, k2, k3])
+//        |> SMap3
+
+//    static member inline (.*) (a:SMap3<_,_,_,_>, b:SMap2<_,_,_>) =
+//        a.Values
+//        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey (k2, k3))
+//        |> Map.map (fun (k1, k2, k3) v -> v * b.[k2, k3])
+//        |> SMap3
+
+//    static member inline (.*) (b:SMap2<_,_,_>, a:SMap3<_,_,_,_>) =
+//        a.Values
+//        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey (k1, k2))
+//        |> Map.map (fun (k1, k2, k3) v -> v * b.[k1, k2])
+//        |> SMap3
+
+//    static member inline (.*) (a:SMap3<_,_,_,_>, b:SMap<_,_>) =
+//        a.Values
+//        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey k3)
+//        |> Map.map (fun (k1, k2, k3) v -> v * b.[k3])
+//        |> SMap3
+
+//    static member inline (.*) (b:SMap<_,_>, a:SMap3<_,_,_,_>) =
+//        a.Values
+//        |> Map.filter (fun (k1, k2, k3) _ -> b.ContainsKey k1)
+//        |> Map.map (fun (k1, k2, k3) v -> v * b.[k1])
+//        |> SMap3
+
+//    static member inline (+) (lhs:SMap3<_,_,_,_>, rhs:SMap3<_,_,_,_>) =
+//        match Map.count lhs.Values > Map.count rhs.Values with
+//        | true ->  mergeAddition lhs.Values rhs.Values
+//        | false -> mergeAddition rhs.Values lhs.Values
+//        |> SMap3
+
+//    static member inline Sum (m:SMap3<_,_,_,_>) =
+//        m.Values |> Map.toSeq |> Seq.sumBy snd
+
+//    static member inline Sum (m:SMap3<_,_,_,Flips.Types.Decision>) =
+//        m.Values |> Map.map (fun _ d -> 1.0 * d) |> Map.toSeq |> Seq.sumBy snd
+
+//    static member inline Sum (m:SMap3<_,_,_,Flips.UnitsOfMeasure.Types.Decision<_>>) =
+//        m.Values |> Map.map (fun _ d -> 1.0 * d) |> Map.toSeq |> Seq.sumBy snd
+
+
+//module SMap3 =
+
+//    let ofMap m =
+//        m |> SMap3
+
+//    let toMap (m:SMap3<_,_,_,_>) =
+//        m.Values
+
+//    let ofList m =
+//        m |> Map.ofList |> SMap3
+
+//    let toList (m:SMap3<_,_,_,_>) =
+//        m.Values |> Map.toList
+
+//    let ofSeq m =
+//        m |> Map.ofSeq |> SMap3
+
+//    let toSeq (m:SMap3<_,_,_,_>) =
+//        m.Values |> Map.toSeq
+
+//    let ofArray m =
+//        m |> Map.ofArray |> SMap3
+
+//    let toArray (m:SMap3<_,_,_,_>) =
+//        m.Values |> Map.toArray
+
+//    let containsKey k (m:SMap3<_,_,_,_>) =
+//        Map.containsKey k m.Values
+
+//    let inline reKey f m =
+//        m |> toSeq |> Seq.map (fun (k, v) -> (f k), v) |> ofSeq
 
 
 type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 : comparison and 'Key3 : comparison and 'Key4 : comparison and 'Value : equality> (keys:Memory<struct ('Key1 * 'Key2 * 'Key3 * 'Key4)>, values:Memory<'Value>) =
@@ -700,7 +729,7 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
     override this.GetHashCode () =
         hash this.Values
 
-    member _.ContainsKey k =
+    //member _.ContainsKey k =
         //Map.containsKey k this.Values
 
     //member this.AsMap =
