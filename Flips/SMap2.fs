@@ -33,7 +33,7 @@ type SMap2<'Key1, 'Key2, 'Value when 'Key1 : comparison and 'Key2 : comparison a
       SMap2 (keys, values)
 
     override this.ToString() =
-        sprintf "SMap %O" this.Values
+        sprintf "SMap2 %O" this.Values
 
     override this.Equals(obj) =
         match obj with

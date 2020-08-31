@@ -75,6 +75,7 @@ module SliceData =
                 let c = compare(aKeys.Span.[idx], bKeys.Span.[idx])
                 if c <> 0 || aValues.Span.[idx] <> bValues.Span.[idx] then
                     result <- false
+                idx <- idx + 1
 
             result
 
@@ -137,6 +138,7 @@ module SliceData =
 
         while idx < values.Length do
             newValues.[idx] <- values.Span.[idx] * coefficient
+            idx <- idx + 1
 
         newValues.AsMemory()
 
@@ -180,18 +182,18 @@ module SliceData =
                 newKeys.[outIdx] <- aKeys.Span.[aIdx]
                 newValues.[outIdx] <- aValues.Span.[aIdx]
                 aIdx <- aIdx + 1
-                outIdx <- outIdx + 1
             elif c = 0 then
                 newKeys.[outIdx] <- aKeys.Span.[aIdx]
-                newValues.[outIdx] <- aValues.Span.[aIdx]
+                newValues.[outIdx] <- aValues.Span.[aIdx] + bValues.Span.[bIdx]
                 aIdx <- aIdx + 1
                 bIdx <- bIdx + 1
-                outIdx <- outIdx + 1
             else
                 newKeys.[outIdx] <- bKeys.Span.[bIdx]
                 newValues.[outIdx] <- bValues.Span.[bIdx]
                 bIdx <- bIdx + 1
-                outIdx <- outIdx + 1
+
+            outIdx <- outIdx + 1
+
 
         while aIdx < aValues.Length do
             newKeys.[outIdx] <- aKeys.Span.[aIdx]
@@ -232,7 +234,7 @@ module SliceData =
 
 
     let ofSeq (s:seq<'Key*'Value>) =
-        let sorted = s |> Seq.sortBy fst
+        let sorted = s |> Seq.distinctBy fst |> Seq.sortBy fst
 
         let keys =
             sorted
