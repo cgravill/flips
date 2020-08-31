@@ -131,7 +131,7 @@ module SliceData =
 
         newKeys.AsMemory(0, outIdx), newValues.AsMemory(0, outIdx)
 
-    let scale coefficient (values:Memory<_>) =
+    let inline scale coefficient (values:Memory<_>) =
         let newValues = Array.zeroCreate(values.Length)
         let mutable idx = 0
 

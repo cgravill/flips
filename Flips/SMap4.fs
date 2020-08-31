@@ -41,6 +41,10 @@ type SMap4<'Key1, 'Key2, 'Key3, 'Key4, 'Value when 'Key1 : comparison and 'Key2 
     member _.Keys = keys
     member _.Values = values
 
+    new(m:Map<_,_>) =
+      let (keys, values) = m |> Map.toSeq |> Seq.map (fun ((k1, k2, k3, k4), v) -> struct (k1, k2, k3, k4), v ) |> SliceData.ofSeq
+      SMap4 (keys, values)
+
     override this.ToString() =
         sprintf "SMap4 %O" this.Values
 

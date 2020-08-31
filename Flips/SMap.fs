@@ -12,6 +12,10 @@ type SMap<'Key, 'Value when 'Key : comparison and 'Value : equality> (keys:Memor
     member _.Keys = keys
     member _.Values = values
 
+    new(m:Map<_,_>) =
+      let (keys, values) = m |> Map.toSeq |> SliceData.ofSeq
+      SMap (keys, values)
+
     override this.ToString() =
         sprintf "SMap %O" this.Values
 
