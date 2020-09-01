@@ -255,6 +255,83 @@ module Types =
 
           ()
 
+    [<Properties(Arbitrary = [| typeof<Types> |] )>]
+    module SliceDataTests =
+        open Flips.SliceMap
+
+
+        [<Property>]
+        let ``Equivalent SliceData is equal`` (d:List<NonEmptyString * int>) =
+            let comparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare
+            let sd1 = SliceData.ofSeq d
+            let sd2 = SliceData.ofSeq d
+
+            Assert.True((SliceData.equals comparer sd1 sd2))
+
+        [<Property>]
+        let ``SliceData addition is commutative`` (d1:List<NonEmptyString * int>) (d2:List<NonEmptyString * int>) =
+            let comparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare
+            let sd1 = SliceData.ofSeq d1
+            let sd2 = SliceData.ofSeq d2
+
+            let t1 = SliceData.add comparer sd1 sd2
+            let t2 = SliceData.add comparer sd2 sd1
+
+            Assert.True((SliceData.equals comparer t1 t2))
+
+        [<Property>]
+        let ``SliceData addition is asspcoatove`` (d1:List<NonEmptyString * int>) (d2:List<NonEmptyString * int>) (d3:List<NonEmptyString * int>) =
+            let comparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare
+            let sd1 = SliceData.ofSeq d1
+            let sd2 = SliceData.ofSeq d2
+            let sd3 = SliceData.ofSeq d3
+
+            let t1 = SliceData.add comparer (SliceData.add comparer sd1 sd2) sd3
+            let t2 = SliceData.add comparer (SliceData.add comparer sd1 sd3) sd2
+
+            Assert.True((SliceData.equals comparer t1 t2))
+
+        [<Property>]
+        let ``SliceData findIndexOf returns correct index`` (d:List<NonEmptyString * int>) (kvp:NonEmptyString * int) =
+            let rng = System.Random()
+            let comparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare
+            let (keys, values) = SliceData.ofSeq ([kvp] @ d)
+
+            let lookupLocation = rng.Next(0, keys.Length - 1)
+            let lookupKey = keys.Span.[lookupLocation]
+
+            let result = SliceData.findIndexOf comparer 0 lookupKey keys
+
+            Assert.Equal(lookupLocation, result)
+
+        [<Property>]
+        let ``SliceData findIndexOf of empty SliceData returns 0`` (NonEmptyString s) =
+            let comparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare
+            let (keys, values) = SliceData.ofSeq []
+
+            let result = SliceData.findIndexOf comparer 0 s keys
+
+            Assert.Equal(0, result)
+
+        [<Property>]
+        let ``SliceData stores unique indexes`` (d:List<NonEmptyString * int>) =
+            let comparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare
+            let (keys, values) = SliceData.ofSeq (d @ d)
+            let uniqueKeys = d |> List.map (fun (k, v) -> k) |> List.distinct
+            Assert.Equal(uniqueKeys.Length, keys.Length)
+
+        [<Property>]
+        let ``SliceData projectHadamardProduct`` (d1:List<(NonEmptyString * int) * Scalar>) (d2:List<NonEmptyString * Scalar>) =
+            let comparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare
+            let (keys1, values1) = SliceData.ofSeq d1
+            let (keys2, values2) = SliceData.ofSeq d2
+
+            let keyMapper (k1, k2) = k1
+            let x = SliceData.projectHadamardProduct keyMapper comparer (keys1, values1) (keys2, values2)
+            
+            Assert.True(true)
+
+
 
     [<Properties(Arbitrary = [| typeof<Types> |] )>]
     module SliceMapTests =
@@ -415,8 +492,9 @@ module Types =
 
         [<Property>]
         let ``Elementwise-multiplication of SMap by 1/SMap then by SMap2 yields initial SMap2`` (v1:List<((NonEmptyString * NonEmptyString) * Scalar)>) =
+            printfn "Test"
             let s1 = Map.ofList v1 |> SMap2
-            let v2 = v1 |> List.map (fun ((k1, k2), v) -> k1, v) |> List.distinctBy fst
+            let v2 = v1 |> List.map (fun ((k1, k2), v) -> k1, v) |> List.distinctBy (fun (k, v) -> k)
             let s2 = v2 |> SMap.ofList
             let s2Inverse = v2 |> List.map (fun (idx, x) -> idx, (Value 1.0) / x) |> SMap.ofList
             let s3 = (s2Inverse .* s1)

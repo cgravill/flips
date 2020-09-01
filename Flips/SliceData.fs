@@ -142,7 +142,6 @@ module SliceData =
 
         newValues.AsMemory()
 
-
     let inline hadamardProduct (compare:('a * 'a) -> int) (aKeys:Memory<_>, aValues:Memory<_>) (bKeys:Memory<_>, bValues:Memory<_>) =
             let newKeys = Array.zeroCreate(Math.Min(aKeys.Length, bKeys.Length))
             let newValues = Array.zeroCreate(Math.Min(aValues.Length, bValues.Length))
@@ -167,12 +166,13 @@ module SliceData =
             newKeys.AsMemory(0, outIdx), newValues.AsMemory(0, outIdx)
 
     let inline projectHadamardProduct (keyMapper:('a -> 'b)) (compare:('b * 'b) -> int) (aKeys:Memory<'a>, aValues:Memory<_>) (bKeys:Memory<'b>, bValues:Memory<_>) =
-            let newKeys = Array.zeroCreate(Math.Min(aKeys.Length, bKeys.Length))
-            let newValues = Array.zeroCreate(Math.Min(aValues.Length, bValues.Length))
-            let mutable aIdx = 0
-            let mutable bIdx = 0
-            let mutable outIdx = 0
+        let newKeys = Array.zeroCreate(Math.Max(aKeys.Length, bKeys.Length))
+        let newValues = Array.zeroCreate(Math.Max(aValues.Length, bValues.Length))
+        let mutable aIdx = 0
+        let mutable bIdx = 0
+        let mutable outIdx = 0
 
+        if newKeys.Length > 0 then
             while (aIdx < aKeys.Length) do
                 let bLookupKey = keyMapper aKeys.Span.[aIdx]
                 bIdx <- findIndexOf compare 0 bLookupKey bKeys
@@ -186,8 +186,7 @@ module SliceData =
 
                 aIdx <- aIdx + 1
 
-            newKeys.AsMemory(0, outIdx), newValues.AsMemory(0, outIdx)
-
+        newKeys.AsMemory(0, outIdx), newValues.AsMemory(0, outIdx)
 
     let inline add (compare:('a * 'a) -> int) (aKeys:Memory<'a>, aValues:Memory<'v>) (bKeys:Memory<'a>, bValues:Memory<'v>) =
         let newKeys = Array.zeroCreate(aKeys.Length + bKeys.Length)
@@ -247,14 +246,12 @@ module SliceData =
 
         seq {for i in 0..keys.Length -> keys.Span.[i], values.Span.[i]}
 
-
     let toMap (keys:Memory<_>, values:Memory<_>) =
         if keys.Length <> values.Length then
             invalidArg "Values" "The number of Values must match the number of Keys"
 
         seq {for i in 0..keys.Length -> keys.Span.[i], values.Span.[i]}
         |> Map.ofSeq
-
 
     let ofSeq (s:seq<'Key*'Value>) =
         let sorted = s |> Seq.distinctBy fst |> Seq.sortBy fst
@@ -272,7 +269,6 @@ module SliceData =
             |> fun x -> x.AsMemory()
 
         keys, values
-
 
     let ofMap (m:Map<_,_>) =
         m |> Map.toSeq |> ofSeq

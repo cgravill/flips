@@ -96,12 +96,12 @@ type SMap2<'Key1, 'Key2, 'Value when 'Key1 : comparison and 'Key2 : comparison a
         |> SMap2
 
     static member inline (.*) (sm2:SMap2<_,_,_>, sm:SMap<_,_>) =
-        let keyMapper (struct (k1, k2)) = k2
+        let keyMapper (struct (_, k2)) = k2
         let (keys, values) = SliceData.projectHadamardProduct keyMapper sm.Comparer (sm2.Keys, sm2.Values) (sm.Keys, sm.Values)
         SMap2 (keys, values)
 
     static member inline (.*) (sm:SMap<_,_>, sm2:SMap2<_,_,_>) =
-        let keyMapper (struct (k1, k2)) = k1
+        let keyMapper (struct (k1, _)) = k1
         let (keys, values) = SliceData.projectHadamardProduct keyMapper sm.Comparer (sm2.Keys, sm2.Values) (sm.Keys, sm.Values)
         SMap2 (keys, values)
 
