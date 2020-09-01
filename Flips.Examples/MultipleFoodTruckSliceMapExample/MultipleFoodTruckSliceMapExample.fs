@@ -5,7 +5,8 @@ open Flips.Types
 open Flips.SliceMap
 
 let solve () =
-    
+    printfn "Multiple Food Truck with SliceMap Example"
+
     // Declare the parameters for our model
     let items = ["Hamburger"; "HotDog"; "Pizza"]
     let locations = ["Woodstock"; "Sellwood"; "Portland"]

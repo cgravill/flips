@@ -5,6 +5,8 @@ open Flips
 open Flips.Types
 
 let solve () =
+    printfn "Food Truck Decision Builder"
+    
 
     // Declare the parameters for our model
     let items = ["Hamburger"; "HotDog"]

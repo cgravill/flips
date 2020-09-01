@@ -11,7 +11,8 @@ type [<Measure>] Item
 type [<Measure>] Lb
 
 let solve () =
-    
+    printfn "Multiple Food Truck - SliceMap With Units Of Measure Example"
+
     // Declare the parameters for our model
     let items = ["Hamburger"; "HotDog"; "Pizza"]
     let locations = ["Woodstock"; "Sellwood"; "Portland"]

@@ -4,7 +4,8 @@ open Flips
 open Flips.Types
 
 let solve () =
-    
+    printfn "Multiple Food Truck Example"
+
     // Declare the parameters for our model
     let items = ["Hamburger"; "HotDog"; "Pizza"]
     let locations = ["Woodstock"; "Sellwood"; "Portland"]

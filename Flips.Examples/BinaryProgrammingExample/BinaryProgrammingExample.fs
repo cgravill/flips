@@ -6,7 +6,7 @@ open Flips.SliceMap
 
 
 let solve () =
-
+    printfn "Binary Programming Example"
     let indexes = [1..9]
     let value = [for i in indexes -> i, 10.0 - (float i)] |> SMap.ofList
     let decisions = 

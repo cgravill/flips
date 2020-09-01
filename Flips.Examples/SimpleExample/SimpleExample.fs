@@ -4,6 +4,8 @@ open Flips
 open Flips.Types
 
 let solve () =
+    printfn "Simple Example"
+
     let x1 = Decision.createContinuous "x1" 0.0 infinity
     let x2 = Decision.createContinuous "x2" 0.0 infinity
     

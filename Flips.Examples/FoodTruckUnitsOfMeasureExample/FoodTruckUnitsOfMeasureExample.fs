@@ -9,6 +9,7 @@ type [<Measure>] Item
 type [<Measure>] Lb
 
 let solve () =
+    printfn "Food Truck Units Of Measure Example"
 
     // Declare the parameters for our model
     // This time include Units of Measure on the floats

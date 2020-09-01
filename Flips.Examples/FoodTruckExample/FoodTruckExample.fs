@@ -5,6 +5,7 @@ open Flips.Types
 
 
 let solve () =
+    printfn "Food Truck Example"
 
     // Declare the parameters for our model
     let hamburgerProfit = 1.50

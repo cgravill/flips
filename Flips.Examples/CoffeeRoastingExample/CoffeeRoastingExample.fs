@@ -14,6 +14,7 @@ type [<Measure>] Build
 type Location = Location of string
 
 let solve () =
+    printfn "Coffee Roasing Example"
 
     let minRoastingCapacity = 30.0<Ton>
     let minWarehouseCapacity = 30_000.0<ft^3>

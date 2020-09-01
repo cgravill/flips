@@ -4,6 +4,7 @@ open Flips
 open Flips.Types
 
 let solve () =
+    printfn "Food Truck Constraint Builder Example"
 
     // Declare the parameters for our model
     let items = ["Hamburger"; "HotDog"]

@@ -6,6 +6,8 @@ open Flips.SliceMap
 
 
 let solve () =
+    printfn "MapSlicing Example"
+
     let sources = [1 .. 3]
     let sourceMax = Map.ofList [for s in sources -> s, 10.0 * float s]
 

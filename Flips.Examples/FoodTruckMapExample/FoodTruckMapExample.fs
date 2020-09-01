@@ -4,6 +4,7 @@ open Flips
 open Flips.Types
 
 let solve () =
+    printfn "Food Truck Map Example"
 
     // Declare the parameters for our model
     let items = ["Hamburger"; "HotDog"]
