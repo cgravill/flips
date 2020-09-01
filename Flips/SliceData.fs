@@ -255,19 +255,31 @@ module SliceData =
         |> Map.ofSeq
 
     let ofSeq (s:seq<'Key*'Value>) =
-        let sorted = s |> Seq.distinctBy fst |> Seq.sortBy fst
+        let sorted = s |> Seq.sortBy fst
 
         let keys =
             sorted
             |> Seq.map fst
             |> Array.ofSeq
-            |> fun x -> x.AsMemory()
 
         let values =
             sorted
             |> Seq.map snd
             |> Array.ofSeq
-            |> fun x -> x.AsMemory()
+
+        let newKeys = Array.zeroCreate keys.Length
+        let newValues = Array.zeroCreate values.Length
+        let mutable sourceIdx = 0
+        let mutable outIdx = 0
+
+        while sourceIdx < keys.Length do
+            newKeys.[outIdx] <- keys.[sourceIdx]
+            newValues.[outIdx] <- values.[sourceIdx]
+
+            if sourceIdx = 0 || then
+                outIdx <- outIdx + 1
+
+            sourceIdx <- sourceIdx + 1
 
         keys, values
 

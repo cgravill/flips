@@ -269,6 +269,33 @@ module Types =
             Assert.True((SliceData.equals comparer sd1 sd2))
 
         [<Property>]
+        let ``SliceData sum is correct`` (d:List<NonEmptyString * int>) =
+            let comparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare
+            let (keys, values) = SliceData.ofSeq d
+            let sdSum = SliceData.sum values
+
+            let expectedSum = d |> List.distinctBy fst |> List.sumBy snd
+
+            Assert.StrictEqual(expectedSum, sdSum)
+
+        [<Property>]
+        let ``Map to SliceData to Map returns Equivalent`` (d:List<NonEmptyString * int>) =
+            let expectedMap = Map.ofList d
+            let sd = SliceData.ofMap expectedMap
+            let resultMap = SliceData.toMap sd
+
+            Assert.StrictEqual(expectedMap, resultMap)
+
+        [<Property>]
+        let ``SliceData ofSeq |> toMap same as Map.ofSeq`` (d:List<NonEmptyString * int>) =
+            let expectedMap = Map.ofList d
+            let sd = SliceData.ofSeq d
+            let resultMap = SliceData.toMap sd
+
+            Assert.StrictEqual(expectedMap, resultMap)
+
+
+        [<Property>]
         let ``SliceData addition is commutative`` (d1:List<NonEmptyString * int>) (d2:List<NonEmptyString * int>) =
             let comparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare
             let sd1 = SliceData.ofSeq d1
@@ -280,7 +307,7 @@ module Types =
             Assert.True((SliceData.equals comparer t1 t2))
 
         [<Property>]
-        let ``SliceData addition is asspcoatove`` (d1:List<NonEmptyString * int>) (d2:List<NonEmptyString * int>) (d3:List<NonEmptyString * int>) =
+        let ``SliceData addition is associative`` (d1:List<NonEmptyString * int>) (d2:List<NonEmptyString * int>) (d3:List<NonEmptyString * int>) =
             let comparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare
             let sd1 = SliceData.ofSeq d1
             let sd2 = SliceData.ofSeq d2
