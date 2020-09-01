@@ -237,6 +237,7 @@ module SliceData =
 
         while idx < values.Length do
             acc <- acc + values.Span.[idx]
+            idx <- idx + 1
 
         acc
 
@@ -250,7 +251,7 @@ module SliceData =
         if keys.Length <> values.Length then
             invalidArg "Values" "The number of Values must match the number of Keys"
 
-        seq {for i in 0..keys.Length -> keys.Span.[i], values.Span.[i]}
+        seq {for i in 0..keys.Length - 1 -> keys.Span.[i], values.Span.[i]}
         |> Map.ofSeq
 
     let ofSeq (s:seq<'Key*'Value>) =
