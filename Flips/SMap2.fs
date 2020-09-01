@@ -48,7 +48,7 @@ type SMap2<'Key1, 'Key2, 'Value when 'Key1 : comparison and 'Key2 : comparison a
 
     member this.AsMap =
         seq {
-            for idx in 0 .. this.Keys.Length ->
+            for idx in 0 .. this.Keys.Length - 1 ->
                 keys.Span.[idx], values.Span.[idx]
         }
         |> Map.ofSeq
@@ -96,14 +96,14 @@ type SMap2<'Key1, 'Key2, 'Value when 'Key1 : comparison and 'Key2 : comparison a
         |> SMap2
 
     static member inline (.*) (sm2:SMap2<_,_,_>, sm:SMap<_,_>) =
-        let comparer (struct (k1, k2), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (k2, bKey)
-        SliceData.hadamardProduct comparer (sm2.Keys, sm2.Values) (sm.Keys, sm.Values)
-        |> SMap2
+        let keyMapper (struct (k1, k2)) = k2
+        let (keys, values) = SliceData.projectHadamardProduct keyMapper sm.Comparer (sm2.Keys, sm2.Values) (sm.Keys, sm.Values)
+        SMap2 (keys, values)
 
     static member inline (.*) (sm:SMap<_,_>, sm2:SMap2<_,_,_>) =
-        let comparer (struct (k1, k2), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (k1, bKey)
-        SliceData.hadamardProduct comparer (sm2.Keys, sm2.Values) (sm.Keys, sm.Values)
-        |> SMap2
+        let keyMapper (struct (k1, k2)) = k1
+        let (keys, values) = SliceData.projectHadamardProduct keyMapper sm.Comparer (sm2.Keys, sm2.Values) (sm.Keys, sm.Values)
+        SMap2 (keys, values)
 
     static member inline (+) (a:SMap2<_,_,_>, b:SMap2<_,_,_>) =
         SliceData.add a.Comparer (a.Keys, a.Values) (b.Keys, b.Values)

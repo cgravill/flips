@@ -67,7 +67,7 @@ type SMap5<'Key1, 'Key2, 'Key3, 'Key4, 'Key5, 'Value when 'Key1 : comparison and
 
     member this.AsMap =
         seq {
-            for idx in 0 .. this.Keys.Length ->
+            for idx in 0 .. this.Keys.Length - 1 ->
                 keys.Span.[idx], values.Span.[idx]
         }
         |> Map.ofSeq
@@ -290,43 +290,43 @@ type SMap5<'Key1, 'Key2, 'Key3, 'Key4, 'Key5, 'Value when 'Key1 : comparison and
         |> SMap5
 
     static member inline (.*) (sm5:SMap5<_,_,_,_,_,_>, sm4:SMap4<_,_,_,_,_>) =
-        let comparer (struct (k1, k2, k3, k4, k5), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (struct (k2, k3, k4, k5), bKey)
-        SliceData.hadamardProduct comparer (sm5.Keys, sm5.Values) (sm4.Keys, sm4.Values)
+        let keyMapper struct (k1, k2, k3, k4, k5) = struct (k2, k3, k4, k5)
+        SliceData.projectHadamardProduct keyMapper sm4.Comparer (sm5.Keys, sm5.Values) (sm4.Keys, sm4.Values)
         |> SMap5
 
     static member inline (.*) (sm4:SMap4<_,_,_,_,_>, sm5:SMap5<_,_,_,_,_,_>) =
-        let comparer (struct (k1, k2, k3, k4, k5), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (struct (k1, k2, k3, k4), bKey)
-        SliceData.hadamardProduct comparer (sm5.Keys, sm5.Values) (sm4.Keys, sm4.Values)
+        let keyMapper struct (k1, k2, k3, k4, k5) = struct (k1, k2, k3, k4)
+        SliceData.projectHadamardProduct keyMapper sm4.Comparer (sm5.Keys, sm5.Values) (sm4.Keys, sm4.Values)
         |> SMap5
 
     static member inline (.*) (sm5:SMap5<_,_,_,_,_,_>, sm3:SMap3<_,_,_,_>) =
-        let comparer (struct (k1, k2, k3, k4, k5), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (struct (k3, k4, k5), bKey)
-        SliceData.hadamardProduct comparer (sm5.Keys, sm5.Values) (sm3.Keys, sm3.Values)
+        let keyMapper struct (k1, k2, k3, k4, k5) = struct (k3, k4, k5)
+        SliceData.projectHadamardProduct keyMapper sm3.Comparer (sm5.Keys, sm5.Values) (sm3.Keys, sm3.Values)
         |> SMap5
 
     static member inline (.*) (sm3:SMap3<_,_,_,_>, sm5:SMap5<_,_,_,_,_,_>) =
-        let comparer (struct (k1, k2, k3, k4, k5), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (struct (k1, k2, k3), bKey)
-        SliceData.hadamardProduct comparer (sm5.Keys, sm5.Values) (sm3.Keys, sm3.Values)
+        let keyMapper struct (k1, k2, k3, k4, k5) = struct (k1, k2, k3)
+        SliceData.projectHadamardProduct keyMapper sm3.Comparer (sm5.Keys, sm5.Values) (sm3.Keys, sm3.Values)
         |> SMap5
 
     static member inline (.*) (sm5:SMap5<_,_,_,_,_,_>, sm2:SMap2<_,_,_>) =
-        let comparer (struct (k1, k2, k3, k4, k5), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (struct (k4, k5), bKey)
-        SliceData.hadamardProduct comparer (sm5.Keys, sm5.Values) (sm2.Keys, sm2.Values)
+        let keyMapper struct (k1, k2, k3, k4, k5) = struct (k4, k5)
+        SliceData.projectHadamardProduct keyMapper sm2.Comparer (sm5.Keys, sm5.Values) (sm2.Keys, sm2.Values)
         |> SMap5
 
     static member inline (.*) (sm2:SMap2<_,_,_>, sm5:SMap5<_,_,_,_,_,_>) =
-        let comparer (struct (k1, k2, k3, k4, k5), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (struct (k1, k2), bKey)
-        SliceData.hadamardProduct comparer (sm5.Keys, sm5.Values) (sm2.Keys, sm2.Values)
+        let keyMapper struct (k1, k2, k3, k4, k5) = struct (k1, k2)
+        SliceData.projectHadamardProduct keyMapper sm2.Comparer (sm5.Keys, sm5.Values) (sm2.Keys, sm2.Values)
         |> SMap5
 
     static member inline (.*) (sm5:SMap5<_,_,_,_,_,_>, sm:SMap<_,_>) =
-        let comparer (struct (k1, k2, k3, k4, k5), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (k5, bKey)
-        SliceData.hadamardProduct comparer (sm5.Keys, sm5.Values) (sm.Keys, sm.Values)
+        let keyMapper struct (k1, k2, k3, k4, k5) = k5
+        SliceData.projectHadamardProduct keyMapper sm.Comparer (sm5.Keys, sm5.Values) (sm.Keys, sm.Values)
         |> SMap5
 
     static member inline (.*) (sm:SMap<_,_>, sm5:SMap5<_,_,_,_,_,_>) =
-        let comparer (struct (k1, k2, k3, k4, k5), bKey) = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare (k1, bKey)
-        SliceData.hadamardProduct comparer (sm5.Keys, sm5.Values) (sm.Keys, sm.Values)
+        let keyMapper struct (k1, k2, k3, k4, k5) = k1
+        SliceData.projectHadamardProduct keyMapper sm.Comparer (sm5.Keys, sm5.Values) (sm.Keys, sm.Values)
         |> SMap5
 
 

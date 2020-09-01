@@ -32,7 +32,7 @@ type SMap<'Key, 'Value when 'Key : comparison and 'Value : equality> (keys:Memor
 
     member this.AsMap =
         seq {
-            for idx in 0 .. this.Keys.Length ->
+            for idx in 0 .. this.Keys.Length - 1 ->
                 keys.Span.[idx], values.Span.[idx]
         }
         |> Map.ofSeq

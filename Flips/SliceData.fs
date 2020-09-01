@@ -143,7 +143,7 @@ module SliceData =
         newValues.AsMemory()
 
 
-    let inline hadamardProduct (compare:('a * 'b) -> int) (aKeys:Memory<_>, aValues:Memory<_>) (bKeys:Memory<_>, bValues:Memory<_>) =
+    let inline hadamardProduct (compare:('a * 'a) -> int) (aKeys:Memory<_>, aValues:Memory<_>) (bKeys:Memory<_>, bValues:Memory<_>) =
             let newKeys = Array.zeroCreate(Math.Min(aKeys.Length, bKeys.Length))
             let newValues = Array.zeroCreate(Math.Min(aValues.Length, bValues.Length))
             let mutable aIdx = 0
@@ -165,6 +165,29 @@ module SliceData =
                     bIdx <- bIdx + 1
 
             newKeys.AsMemory(0, outIdx), newValues.AsMemory(0, outIdx)
+
+    let inline projectHadamardProduct (keyMapper:('a -> 'b)) (compare:('b * 'b) -> int) (aKeys:Memory<'a>, aValues:Memory<_>) (bKeys:Memory<'b>, bValues:Memory<_>) =
+            let newKeys = Array.zeroCreate(Math.Min(aKeys.Length, bKeys.Length))
+            let newValues = Array.zeroCreate(Math.Min(aValues.Length, bValues.Length))
+            let mutable aIdx = 0
+            let mutable bIdx = 0
+            let mutable outIdx = 0
+
+            while (aIdx < aKeys.Length) do
+                let bLookupKey = keyMapper aKeys.Span.[aIdx]
+                bIdx <- findIndexOf compare 0 bLookupKey bKeys
+                if bIdx < bKeys.Length then
+                    let c = compare (bLookupKey, bKeys.Span.[bIdx])
+
+                    if c = 0 then
+                        newKeys.[outIdx] <- aKeys.Span.[aIdx]
+                        newValues.[outIdx] <- aValues.Span.[aIdx] * bValues.Span.[bIdx]
+                        outIdx <- outIdx + 1
+
+                aIdx <- aIdx + 1
+
+            newKeys.AsMemory(0, outIdx), newValues.AsMemory(0, outIdx)
+
 
     let inline add (compare:('a * 'a) -> int) (aKeys:Memory<'a>, aValues:Memory<'v>) (bKeys:Memory<'a>, bValues:Memory<'v>) =
         let newKeys = Array.zeroCreate(aKeys.Length + bKeys.Length)

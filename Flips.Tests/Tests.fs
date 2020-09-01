@@ -383,7 +383,7 @@ module Types =
         let ``Multiply SMap2 by its inverse then itself yields original `` (v:List<((NonEmptyString * NonEmptyString) * Scalar)>)=
             let m = v |> Map.ofList
             let s = m |> SMap2
-            let inverse = v |> List.map (fun (k, v) -> k, 1.0 / v) |> SMap2.ofList
+            let inverse = m |> Map.map (fun k v -> 1.0 / v) |> SMap2
             let r = s .* inverse .* s
             Assert.StrictEqual(s, r)
 
@@ -413,15 +413,15 @@ module Types =
             let r = s1 .* s2 .* s2Inverse
             Assert.StrictEqual(r, s1)
 
-        //[<Property>]
-        //let ``Elementwise-multiplication of SMap by 1/SMap then by SMap2 yields initial SMap2`` (v1:List<((NonEmptyString * NonEmptyString) * Scalar)>) =
-        //    let m1 = v1 |> Map.ofList
-        //    let s1 = m1 |> SMap2
-        //    let v2 = m1 |> Map.toSeq |> Seq.map (fun (k1, k2) v -> k1, v)
-        //    let s2 = v2 |> SMap.ofList
-        //    let s2Inverse = v2 |> List.map (fun (idx, x) -> idx, (Value 1.0) / x) |> SMap.ofList
-        //    let r = s2 .* (s2Inverse .* s1)
-        //    Assert.StrictEqual(r, s1)
+        [<Property>]
+        let ``Elementwise-multiplication of SMap by 1/SMap then by SMap2 yields initial SMap2`` (v1:List<((NonEmptyString * NonEmptyString) * Scalar)>) =
+            let s1 = Map.ofList v1 |> SMap2
+            let v2 = v1 |> List.map (fun ((k1, k2), v) -> k1, v) |> List.distinctBy fst
+            let s2 = v2 |> SMap.ofList
+            let s2Inverse = v2 |> List.map (fun (idx, x) -> idx, (Value 1.0) / x) |> SMap.ofList
+            let s3 = (s2Inverse .* s1)
+            let r = s2 .* s3
+            Assert.StrictEqual(r, s1)
 
 
     [<Properties(Arbitrary = [| typeof<Types> |] )>]
