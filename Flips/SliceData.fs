@@ -272,16 +272,20 @@ module SliceData =
         let mutable sourceIdx = 0
         let mutable outIdx = 0
 
+        while sourceIdx < keys.Length - 1 do
+            if keys.[sourceIdx] <> keys.[sourceIdx + 1] then
+                newKeys.[outIdx] <- keys.[sourceIdx]
+                newValues.[outIdx] <- values.[sourceIdx]
+                outIdx <- outIdx + 1
+            sourceIdx <- sourceIdx + 1
+
         while sourceIdx < keys.Length do
             newKeys.[outIdx] <- keys.[sourceIdx]
             newValues.[outIdx] <- values.[sourceIdx]
-
-            if sourceIdx = 0 || then
-                outIdx <- outIdx + 1
-
+            outIdx <- outIdx + 1
             sourceIdx <- sourceIdx + 1
 
-        keys, values
+        newKeys.AsMemory(0, outIdx), newValues.AsMemory(0, outIdx)
 
     let ofMap (m:Map<_,_>) =
         m |> Map.toSeq |> ofSeq

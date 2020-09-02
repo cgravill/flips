@@ -269,12 +269,12 @@ module Types =
             Assert.True((SliceData.equals comparer sd1 sd2))
 
         [<Property>]
-        let ``SliceData sum is correct`` (d:List<NonEmptyString * int>) =
+        let ``SliceData sum is same as sum of Map values`` (d:List<NonEmptyString * int>) =
             let comparer = FSharp.Core.LanguagePrimitives.FastGenericComparer<_>.Compare
             let (keys, values) = SliceData.ofSeq d
             let sdSum = SliceData.sum values
 
-            let expectedSum = d |> List.distinctBy fst |> List.sumBy snd
+            let expectedSum = d |> Map.ofList |> Map.toSeq |> Seq.sumBy snd
 
             Assert.StrictEqual(expectedSum, sdSum)
 
