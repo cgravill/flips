@@ -15,15 +15,15 @@ type SMap<'Key, 'Value when 'Key : comparison and 'Value : equality>
         SMap (keys, store)
 
     new (m:Map<'Key, 'Value>) =
-      let s = m |> Map.toSeq
-      SMap s
+        let s = m |> Map.toSeq
+        SMap s
 
     member _.Keys = keys
     member _.TryFind = tryFind
 
     member _.AsMap () =
-      tryFind
-      |> TryFind.toMap keys
+        tryFind
+        |> TryFind.toMap keys
 
     override this.ToString() =
         sprintf "SMap %O" (this.AsMap ())
